@@ -22,3 +22,25 @@ func main() {
 	...
 	}
 }
+
+/* 
+example of connecting to oracle db
+import (
+	"database/sql"
+
+	_ "gopkg.in/rana/ora.v4"
+)
+
+func main() {
+	dbConn := "system/" + os.Getenv("ORACLE_PWD") + "@oracledb:1521"
+	db, err := sql.Open("ora", dbConn)
+	defer db.Close()
+
+	// Set timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Set prefetch count
+	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchCount(50000))
+	rows, err := db.QueryContext(ctx, "SELECT * FROM user_objects")
+	defer rows.Close()
+}
+*/
