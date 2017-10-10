@@ -1,13 +1,16 @@
 package main
 
-import "github.com/emicklei/go-restful"
-import "github.com/ahouts/ProDuctive-server/db"
+import (
+	"log"
 
+	"github.com/ahouts/ProDuctive-server/db"
+	"github.com/emicklei/go-restful"
+)
 
 func main() {
 	ws := new(restful.WebService)
 	ws.
-	Path("/users").
+		Path("/users").
 		Consumes(restful.MIME_XML, restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_XML)
 
@@ -15,15 +18,16 @@ func main() {
 		Doc("get a user").
 		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
 		Writes(db.User{}))
-	...
 
-	func (u db.User) findUser(request *restful.Request, response *restful.Response) {
-	id := request.PathParameter("user-id")
-	...
-	}
+	log.Printf("start listening on localhost:8080")
+	log.Fatal(http.ListenAndServeTls(":443", "cert.pem", "key.pem", nil))
 }
 
-/* 
+func (u db.User) findUser(request *restful.Request, response *restful.Response) {
+	id := request.PathParameter("user-id")
+}
+
+/*
 example of connecting to oracle db
 import (
 	"database/sql"
