@@ -7,8 +7,7 @@ services:
   oracledb:
     image: "oracle/database:11.2.0.2-xe"
     shm_size: 1g
-# uncomment volumes to have data persist on disk
-#    volumes:       
-#      - /some/local/folder:/u01/app/oracle/oradata
+    volumes:       
+      - ./db-data:/u01/app/oracle/oradata
     env_file:
       - .env

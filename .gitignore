@@ -17,3 +17,6 @@
 
 # ignore ssl certificates
 *.pem
+
+# ignore database data folder
+db-data/*
