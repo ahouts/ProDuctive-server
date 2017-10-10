@@ -2,12 +2,33 @@ package main
 
 import (
 	"log"
+	"database/sql"
+
+	_ "gopkg.in/rana/ora.v4"
 
 	"github.com/ahouts/ProDuctive-server/db"
 	"github.com/emicklei/go-restful"
 )
 
 func main() {
+
+	dbConn := "system/" + os.Getenv("ORACLE_PWD") + "@oracledb:1521"
+	db, err := sql.Open("ora", dbConn)
+	defer db.Close()
+
+	// Set timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Set prefetch count
+	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchCount(50000))
+	rows, err := db.QueryContext(ctx, "SELECT * FROM user_objects")
+	defer rows.Close()
+
+	m, err := migrate.NewWithDatabaseInstance(
+        "file:///migrations",
+        "oracle", db)
+	# which migration version we want to be at
+	m.Migrate(4)
+
 	ws := new(restful.WebService)
 	ws.
 		Path("/users").
@@ -30,21 +51,8 @@ func (u db.User) findUser(request *restful.Request, response *restful.Response) 
 /*
 example of connecting to oracle db
 import (
-	"database/sql"
-
-	_ "gopkg.in/rana/ora.v4"
 )
 
 func main() {
-	dbConn := "system/" + os.Getenv("ORACLE_PWD") + "@oracledb:1521"
-	db, err := sql.Open("ora", dbConn)
-	defer db.Close()
-
-	// Set timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// Set prefetch count
-	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchCount(50000))
-	rows, err := db.QueryContext(ctx, "SELECT * FROM user_objects")
-	defer rows.Close()
 }
 */
