@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"database/sql"
+	"log"
 
 	_ "gopkg.in/rana/ora.v4"
 
@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-
 	dbConn := "system/" + os.Getenv("ORACLE_PWD") + "@oracledb:1521"
 	db, err := sql.Open("ora", dbConn)
 	defer db.Close()
@@ -24,9 +23,11 @@ func main() {
 	defer rows.Close()
 
 	m, err := migrate.NewWithDatabaseInstance(
-        "file:///migrations",
-        "oracle", db)
-	# which migration version we want to be at
+		"file:///migrations",
+		"oracle",
+		db,
+	)
+	// which migration version we want to be at
 	m.Migrate(4)
 
 	ws := new(restful.WebService)
@@ -47,12 +48,3 @@ func main() {
 func (u db.User) findUser(request *restful.Request, response *restful.Response) {
 	id := request.PathParameter("user-id")
 }
-
-/*
-example of connecting to oracle db
-import (
-)
-
-func main() {
-}
-*/
