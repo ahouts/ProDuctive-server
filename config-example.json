@@ -1,0 +1,13 @@
+{
+  "ssh": {
+    "hostname": "linux.dc.engr.scu.edu",
+    "username": "ahouts",
+    "password": "nah"
+  },
+  "db": {
+    "hostname": "dagobah",
+    "username": "ahouts",
+    "password": "nah"
+  },
+  "dbName": "db11g"
+}
