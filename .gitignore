@@ -21,3 +21,5 @@
 # ignore database data folder
 db-data/*
 config.json
+
+ProDuctive-server

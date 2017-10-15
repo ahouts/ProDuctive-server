@@ -1,0 +1,1 @@
+CREATE SEQUENCE reminder_id_seq START WITH 1

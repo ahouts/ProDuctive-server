@@ -4,19 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"net"
 	"time"
 
-	_ "gopkg.in/rana/ora.v4"
+	_ "github.com/mattn/go-oci8"
 
 	"net/http"
 
-	"fmt"
 	"io/ioutil"
-	"os"
 
 	"encoding/json"
 
+	"strconv"
+
+	"path/filepath"
+
 	"github.com/ahouts/ProDuctive-server/data"
+	"github.com/ahouts/ProDuctive-server/migrations"
 	"github.com/ahouts/ProDuctive-server/tunnel"
 	"github.com/emicklei/go-restful"
 	"github.com/miquella/ask"
@@ -25,18 +29,18 @@ import (
 )
 
 type loginInfo struct {
-	hostname string
-	username string
-	password string
+	Hostname string
+	Username string
+	Password string
 }
 
 type configuration struct {
-	ssh    loginInfo
-	db     loginInfo
-	dbName string
+	Ssh    loginInfo
+	Db     loginInfo
+	DbName string
 }
 
-const localPort = 48620
+const localPort = 1521
 const oraclePort = 1521
 const sshPort = 22
 const dbPrefetchRowCount = 50000
@@ -49,20 +53,24 @@ func main() {
 	if cfgFile == "" {
 		cfgFile = "./config.json"
 	}
-	file, e := ioutil.ReadFile(cfgFile)
+	fullPath, err := filepath.Abs(cfgFile)
+	if err != nil {
+		log.Fatalf("Failed to resolve path %v\n%v", cfgFile, err)
+	}
+
+	file, e := ioutil.ReadFile(fullPath)
 	if e != nil {
-		fmt.Printf("File error: %v\n", e)
-		os.Exit(1)
+		log.Fatalf("File error: %v\n", e)
 	}
 	cfg := configuration{}
 	json.Unmarshal(file, &cfg)
 
 	createTunnel(cfg)
 
-	dbConn := cfg.db.username + "/" + cfg.db.password + "@\"localhost:" + string(localPort) + "/" + cfg.dbName + "\""
-	db, err := sql.Open("ora", dbConn)
+	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
+	db, err := sql.Open("oci8", dbConn)
 	if err != nil {
-		log.Fatalf("Failed to connect to database...\n %v", err)
+		log.Fatalf("Failed to connect to database...\n%v", err)
 	}
 	defer db.Close()
 
@@ -70,10 +78,10 @@ func main() {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	// Set prefetch count
 	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
-	rows, err := db.QueryContext(ctx, "SELECT * FROM user_objects")
-	defer rows.Close()
 
-	// do migrations
+	conn := data.Conn{DB: *db, Ctx: ctx}
+	mConn := migrations.MCon(conn)
+	mConn.RunMigrations()
 
 	ws := new(restful.WebService)
 	c := &data.Conn{DB: *db, Ctx: ctx}
@@ -89,20 +97,23 @@ func createTunnel(cfg configuration) {
 	}
 
 	serverEndpoint := &tunnel.Endpoint{
-		Host: cfg.ssh.hostname,
+		Host: cfg.Ssh.Hostname,
 		Port: sshPort,
 	}
 
 	remoteEndpoint := &tunnel.Endpoint{
-		Host: cfg.db.hostname,
+		Host: cfg.Db.Hostname,
 		Port: oraclePort,
 	}
 
 	tun := &tunnel.SSHTunnel{
 		Config: &ssh.ClientConfig{
-			User: cfg.ssh.username,
+			User: cfg.Ssh.Username,
 			Auth: []ssh.AuthMethod{
-				ssh.Password(cfg.ssh.password),
+				ssh.Password(cfg.Ssh.Password),
+			},
+			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+				return nil
 			},
 		},
 		Local:  localEndpoint,

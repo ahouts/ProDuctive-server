@@ -23,6 +23,7 @@ func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	defer rows.Close()
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User

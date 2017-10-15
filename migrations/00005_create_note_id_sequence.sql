@@ -1,0 +1,1 @@
+CREATE SEQUENCE note_id_seq START WITH 1
