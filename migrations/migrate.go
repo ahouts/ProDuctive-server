@@ -37,6 +37,10 @@ CREATE TABLE migration_history (
 				log.Fatalln(err)
 			}
 			c.insertMig(file)
+			_, err = c.ExecContext(c.Ctx, "COMMIT")
+			if err != nil {
+				log.Fatalln(err)
+			}
 		}
 	}
 }
