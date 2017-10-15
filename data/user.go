@@ -34,7 +34,7 @@ func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 		users = append(users, u)
 	}
 	if len(users) == 0 {
-		response.WriteErrorString(http.StatusNotFound, fmt.Sprintf("User with id %v could not be found.", id))
+		response.WriteErrorString(http.StatusNoContent, fmt.Sprintf("User with id %v could not be found.", id))
 	} else if len(users) > 1 {
 		response.WriteErrorString(http.StatusConflict, fmt.Sprintf("Found multiple users with the same id %v, exiting...", id))
 	} else {

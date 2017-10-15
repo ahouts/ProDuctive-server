@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-oci8"
+	"github.com/miquella/ask"
 
 	"net/http"
 
@@ -19,11 +20,12 @@ import (
 
 	"path/filepath"
 
+	"fmt"
+
 	"github.com/ahouts/ProDuctive-server/data"
 	"github.com/ahouts/ProDuctive-server/migrations"
 	"github.com/ahouts/ProDuctive-server/tunnel"
 	"github.com/emicklei/go-restful"
-	"github.com/miquella/ask"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/rana/ora.v4"
 )
@@ -40,10 +42,11 @@ type configuration struct {
 	DbName string
 }
 
-const localPort = 1521
+const localPort = 40841
 const oraclePort = 1521
 const sshPort = 22
 const dbPrefetchRowCount = 50000
+const webPort = 8000
 
 func main() {
 	cfgFile, err := ask.Ask("config file? (./config.json): ")
@@ -65,9 +68,12 @@ func main() {
 	cfg := configuration{}
 	json.Unmarshal(file, &cfg)
 
-	createTunnel(cfg)
+	// this function returns a channel that returns a value once its done
+	// by pulling a value out of the channel, we block until the tunnel is ready
+	<-createTunnel(cfg)
 
 	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
+	fmt.Println(dbConn)
 	db, err := sql.Open("oci8", dbConn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database...\n%v", err)
@@ -86,10 +92,10 @@ func main() {
 	ws := new(restful.WebService)
 	configureRoutes(c, ws)
 
-	log.Fatal(http.ListenAndServeTLS(":443", "cert.pem", "key.pem", nil))
+	log.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(webPort), "cert.pem", "key.pem", nil))
 }
 
-func createTunnel(cfg configuration) {
+func createTunnel(cfg configuration) chan (bool) {
 	localEndpoint := &tunnel.Endpoint{
 		Host: "localhost",
 		Port: localPort,
@@ -119,18 +125,7 @@ func createTunnel(cfg configuration) {
 		Server: serverEndpoint,
 		Remote: remoteEndpoint,
 	}
-
-	tun.Start()
-}
-
-func configureRoutes(c *data.Conn, ws *restful.WebService) {
-	ws.
-		Path("/users").
-		Consumes(restful.MIME_XML, restful.MIME_JSON).
-		Produces(restful.MIME_JSON, restful.MIME_XML)
-
-	ws.Route(ws.GET("/{user-id}").To(c.GetUser).
-		Doc("get a user").
-		Param(ws.PathParameter("user-id", "id of the user").DataType("int")).
-		Writes(data.User{}))
+	ready := make(chan (bool))
+	go tun.Start(ready)
+	return ready
 }

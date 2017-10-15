@@ -16,13 +16,13 @@ type SSHTunnel struct {
 	Config *ssh.ClientConfig
 }
 
-func (tunnel *SSHTunnel) Start() error {
+func (tunnel *SSHTunnel) Start(ready chan (bool)) error {
 	listener, err := net.Listen("tcp", tunnel.Local.String())
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
-
+	ready <- true
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
