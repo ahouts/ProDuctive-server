@@ -79,12 +79,11 @@ func main() {
 	// Set prefetch count
 	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
 
-	conn := data.Conn{DB: *db, Ctx: ctx}
-	mConn := migrations.MCon(conn)
+	c := &data.Conn{DB: *db, Ctx: ctx}
+	mConn := migrations.MCon(*c)
 	mConn.RunMigrations()
 
 	ws := new(restful.WebService)
-	c := &data.Conn{DB: *db, Ctx: ctx}
 	configureRoutes(c, ws)
 
 	log.Fatal(http.ListenAndServeTLS(":443", "cert.pem", "key.pem", nil))

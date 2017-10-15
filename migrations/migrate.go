@@ -32,15 +32,11 @@ CREATE TABLE migration_history (
 				log.Fatalln(err)
 			}
 			mig := string(migBytes)
-			fmt.Printf("Got here 1: %v\n", mig)
 			_, err = c.ExecContext(c.Ctx, mig)
 			if err != nil {
 				log.Fatalln(err)
 			}
-			fmt.Println("Got here 2")
 			c.insertMig(file)
-			fmt.Println("Got here 3")
-
 		}
 	}
 }
