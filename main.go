@@ -120,7 +120,7 @@ func createTunnel(cfg configuration) {
 		Remote: remoteEndpoint,
 	}
 
-	go tun.Start()
+	tun.Start()
 }
 
 func configureRoutes(c *data.Conn, ws *restful.WebService) {
