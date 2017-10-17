@@ -46,7 +46,7 @@ const localPort = 40841
 const oraclePort = 1521
 const sshPort = 22
 const dbPrefetchRowCount = 50000
-const webPort = 8000
+const webPort = 443
 
 func main() {
 	cfgFile, err := ask.Ask("config file? (./config.json): ")
