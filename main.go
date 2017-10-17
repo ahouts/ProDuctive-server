@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"log"
 	"net"
+	"net/http"
 	"time"
 
+	restful "github.com/emicklei/go-restful"
 	_ "github.com/mattn/go-oci8"
 	"github.com/miquella/ask"
-
-	"net/http"
 
 	"io/ioutil"
 
@@ -25,7 +25,6 @@ import (
 	"github.com/ahouts/ProDuctive-server/data"
 	"github.com/ahouts/ProDuctive-server/migrations"
 	"github.com/ahouts/ProDuctive-server/tunnel"
-	"github.com/emicklei/go-restful"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/rana/ora.v4"
 )
@@ -87,7 +86,7 @@ func main() {
 
 	c := &data.Conn{DB: *db, Ctx: ctx}
 	mConn := migrations.MCon(*c)
-	mConn.RunMigrations()
+	mConn.Up()
 
 	ws := new(restful.WebService)
 	configureRoutes(c, ws)

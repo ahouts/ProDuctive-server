@@ -9,17 +9,23 @@ import (
 
 	"io/ioutil"
 
+	"strings"
+
 	"github.com/ahouts/ProDuctive-server/data"
 )
 
 type MCon data.Conn
 
-func (c *MCon) RunMigrations() {
-	c.ExecContext(c.Ctx, `
-CREATE TABLE migration_history (
+const m_history_name = "migration_history"
+
+func (c *MCon) Up() {
+	if !c.tableExist(m_history_name) {
+		c.ExecContext(c.Ctx, fmt.Sprintf(`
+CREATE TABLE %v (
 	mig VARCHAR(50) PRIMARY KEY
 )
-`)
+`, m_history_name))
+	}
 	files, err := filepath.Glob("./migrations/*.up.sql")
 	if err != nil {
 		log.Fatal(err)
@@ -45,9 +51,50 @@ CREATE TABLE migration_history (
 	}
 }
 
+func (c *MCon) Down() {
+	files, err := filepath.Glob("./migrations/*.down.sql")
+	if err != nil {
+		log.Fatal(err)
+	}
+	sort.Strings(files)
+	sort.Sort(sort.Reverse(sort.StringSlice(files)))
+	for _, file := range files {
+		if !c.mExist(file) {
+			migBytes, err := ioutil.ReadFile(file)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			mig := string(migBytes)
+			_, err = c.ExecContext(c.Ctx, mig)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			c.removeMig(file)
+			_, err = c.ExecContext(c.Ctx, "COMMIT")
+			if err != nil {
+				log.Fatalln(err)
+			}
+		}
+	}
+}
+
 func getFilename(fullName string) string {
 	_, name := filepath.Split(fullName)
-	return name
+	parts := strings.Split(name, "_")
+	return parts[0]
+}
+
+func (c *MCon) tableExist(tablename string) bool {
+	s := fmt.Sprintf("select table_name from user_tables where table_name='%v'", strings.ToUpper(tablename))
+	rows, err := c.QueryContext(c.Ctx, s)
+	defer rows.Close()
+	if err != nil {
+		log.Fatalf("Failed to serach tables.\n%v", err)
+	}
+	for rows.Next() {
+		return true
+	}
+	return false
 }
 
 func (c *MCon) insertMig(migName string) {
@@ -56,6 +103,32 @@ func (c *MCon) insertMig(migName string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func (c *MCon) removeMig(migName string) {
+	s := fmt.Sprintf("DELETE FROM migration_history WHERE mig = '%v", getFilename(migName))
+	_, err := c.ExecContext(c.Ctx, s)
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
+
+func (c *MCon) getRunMigrations() []string {
+	migs := make([]string, 0)
+	query := "SELECT mig FROM migration_history"
+	rows, err := c.QueryContext(c.Ctx, query)
+	defer rows.Close()
+	if err != nil {
+		log.Fatalf("Failed to find existing migrations.\n%v", err)
+	}
+	for rows.Next() {
+		var mig string
+		if err := rows.Scan(&mig); err != nil {
+			log.Fatalln(err)
+		}
+		migs = append(migs, mig)
+	}
+	return migs
 }
 
 func (c *MCon) mExist(migName string) bool {

@@ -1,0 +1,1 @@
+drop sequence user_profile_id_seq
