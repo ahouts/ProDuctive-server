@@ -20,7 +20,7 @@ CREATE TABLE migration_history (
 	mig VARCHAR(50) PRIMARY KEY
 )
 `)
-	files, err := filepath.Glob("./migrations/*.sql")
+	files, err := filepath.Glob("./migrations/*.up.sql")
 	if err != nil {
 		log.Fatal(err)
 	}
