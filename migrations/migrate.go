@@ -56,10 +56,9 @@ func (c *MCon) Down() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sort.Strings(files)
 	sort.Sort(sort.Reverse(sort.StringSlice(files)))
 	for _, file := range files {
-		if !c.mExist(file) {
+		if c.mExist(file) {
 			migBytes, err := ioutil.ReadFile(file)
 			if err != nil {
 				log.Fatalln(err)
@@ -106,7 +105,7 @@ func (c *MCon) insertMig(migName string) {
 }
 
 func (c *MCon) removeMig(migName string) {
-	s := fmt.Sprintf("DELETE FROM migration_history WHERE mig = '%v", getFilename(migName))
+	s := fmt.Sprintf("DELETE FROM migration_history WHERE mig = '%v'", getFilename(migName))
 	_, err := c.ExecContext(c.Ctx, s)
 	if err != nil {
 		log.Fatalln(err)
