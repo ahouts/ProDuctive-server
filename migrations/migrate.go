@@ -7,9 +7,9 @@ import (
 
 	"sort"
 
-	"io/ioutil"
-
 	"strings"
+
+	"regexp"
 
 	"github.com/ahouts/ProDuctive-server/data"
 )
@@ -20,29 +20,29 @@ const m_history_name = "migration_history"
 
 func (c *MCon) Up() {
 	if !c.tableExist(m_history_name) {
-		c.ExecContext(c.Ctx, fmt.Sprintf(`
-CREATE TABLE %v (
-	mig VARCHAR(50) PRIMARY KEY
-)
-`, m_history_name))
+		createMigrationsStr, err := migrationsCreate_migrationsSqlBytes()
+		if err != nil {
+			log.Fatalf("Failed to find create migrations command\n%v", err)
+		}
+		c.ExecContext(c.Ctx, fmt.Sprintf(string(createMigrationsStr), m_history_name))
 	}
-	files, err := filepath.Glob("./migrations/*.up.sql")
-	if err != nil {
-		log.Fatal(err)
-	}
-	sort.Strings(files)
-	for _, file := range files {
-		if !c.mExist(file) {
-			migBytes, err := ioutil.ReadFile(file)
+
+	migs := getUpMigs()
+	sort.Strings(migs)
+	for _, mig := range migs {
+		if !c.mExist(mig) {
+			migBytes, err := Asset(mig)
 			if err != nil {
 				log.Fatalln(err)
 			}
-			mig := string(migBytes)
-			_, err = c.ExecContext(c.Ctx, mig)
-			if err != nil {
-				log.Fatalln(err)
+			migStr := string(migBytes)
+			for _, migPart := range strings.Split(migStr, ";") {
+				_, err = c.ExecContext(c.Ctx, migPart)
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
-			c.insertMig(file)
+			c.insertMig(migStr)
 			_, err = c.ExecContext(c.Ctx, "COMMIT")
 			if err != nil {
 				log.Fatalln(err)
@@ -52,29 +52,52 @@ CREATE TABLE %v (
 }
 
 func (c *MCon) Down() {
-	files, err := filepath.Glob("./migrations/*.down.sql")
-	if err != nil {
-		log.Fatal(err)
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(files)))
-	for _, file := range files {
-		if c.mExist(file) {
-			migBytes, err := ioutil.ReadFile(file)
+	migs := getDownMigs()
+	sort.Sort(sort.Reverse(sort.StringSlice(migs)))
+	for _, mig := range migs {
+		if !c.mExist(mig) {
+			migBytes, err := Asset(mig)
 			if err != nil {
 				log.Fatalln(err)
 			}
-			mig := string(migBytes)
-			_, err = c.ExecContext(c.Ctx, mig)
-			if err != nil {
-				log.Fatalln(err)
+			migStr := string(migBytes)
+			for _, migPart := range strings.Split(migStr, ";") {
+				_, err = c.ExecContext(c.Ctx, migPart)
+				if err != nil {
+					log.Fatalln(err)
+				}
 			}
-			c.removeMig(file)
+			c.removeMig(migStr)
 			_, err = c.ExecContext(c.Ctx, "COMMIT")
 			if err != nil {
 				log.Fatalln(err)
 			}
 		}
 	}
+}
+
+func getUpMigs() []string {
+	allMigs := AssetNames()
+	reg := regexp.MustCompile(`migrations/\d{5}_.+\.up\.sql`)
+	upMigs := make([]string, 0)
+	for _, mig := range allMigs {
+		if reg.MatchString(mig) {
+			upMigs = append(upMigs, mig)
+		}
+	}
+	return upMigs
+}
+
+func getDownMigs() []string {
+	allMigs := AssetNames()
+	reg := regexp.MustCompile(`migrations/\d{5}_.+\.down\.sql`)
+	downMigs := make([]string, 0)
+	for _, mig := range allMigs {
+		if reg.MatchString(mig) {
+			downMigs = append(downMigs, mig)
+		}
+	}
+	return downMigs
 }
 
 func getFilename(fullName string) string {
@@ -145,7 +168,7 @@ func (c *MCon) mExist(migName string) bool {
 		if res == "Y" {
 			return true
 		} else {
-			log.Fatalf("%v is not 'T'", res)
+			log.Fatalf("%v is not 'Y'", res)
 		}
 	}
 	return false
