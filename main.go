@@ -61,6 +61,7 @@ func main() {
 	<-cfg.createTunnel()
 
 	db, ctx := cfgDb(cfg)
+	defer db.Close()
 
 	c := &data.Conn{DB: *db, Ctx: ctx}
 	mConn := migrations.MCon(*c)
@@ -128,7 +129,6 @@ func cfgDb(cfg configuration) (*sql.DB, context.Context) {
 	if err != nil {
 		log.Fatalf("Failed to connect to database...\n%v", err)
 	}
-	defer db.Close()
 
 	// Set timeout
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
