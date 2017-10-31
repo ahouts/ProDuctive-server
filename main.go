@@ -18,8 +18,6 @@ import (
 
 	"path/filepath"
 
-	"fmt"
-
 	"net/http"
 
 	"github.com/ahouts/ProDuctive-server/data"
@@ -56,34 +54,13 @@ func main() {
 	if cfgFile == "" {
 		cfgFile = "./config.json"
 	}
-	fullPath, err := filepath.Abs(cfgFile)
-	if err != nil {
-		log.Fatalf("Failed to resolve path %v\n%v", cfgFile, err)
-	}
-
-	file, e := ioutil.ReadFile(fullPath)
-	if e != nil {
-		log.Fatalf("File error: %v\n", e)
-	}
-	cfg := configuration{}
-	json.Unmarshal(file, &cfg)
+	cfg := getCfg(cfgFile)
 
 	// this function returns a channel that returns a value once its done
 	// by pulling a value out of the channel, we block until the tunnel is ready
-	<-createTunnel(cfg)
+	<-cfg.createTunnel()
 
-	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
-	fmt.Println(dbConn)
-	db, err := sql.Open("oci8", dbConn)
-	if err != nil {
-		log.Fatalf("Failed to connect to database...\n%v", err)
-	}
-	defer db.Close()
-
-	// Set timeout
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	// Set prefetch count
-	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
+	db, ctx := cfgDb(cfg)
 
 	c := &data.Conn{DB: *db, Ctx: ctx}
 	mConn := migrations.MCon(*c)
@@ -95,7 +72,7 @@ func main() {
 	log.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(webPort), "cert.pem", "key.pem", nil))
 }
 
-func createTunnel(cfg configuration) chan (bool) {
+func (cfg *configuration) createTunnel() chan (bool) {
 	localEndpoint := &tunnel.Endpoint{
 		Host: "localhost",
 		Port: localPort,
@@ -128,4 +105,34 @@ func createTunnel(cfg configuration) chan (bool) {
 	ready := make(chan (bool))
 	go tun.Start(ready)
 	return ready
+}
+
+func getCfg(cfgFile string) configuration {
+	fullPath, err := filepath.Abs(cfgFile)
+	if err != nil {
+		log.Fatalf("Failed to resolve path %v\n%v", cfgFile, err)
+	}
+
+	file, e := ioutil.ReadFile(fullPath)
+	if e != nil {
+		log.Fatalf("File error: %v\n", e)
+	}
+	cfg := configuration{}
+	json.Unmarshal(file, &cfg)
+	return cfg
+}
+
+func cfgDb(cfg configuration) (*sql.DB, context.Context) {
+	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
+	db, err := sql.Open("oci8", dbConn)
+	if err != nil {
+		log.Fatalf("Failed to connect to database...\n%v", err)
+	}
+	defer db.Close()
+
+	// Set timeout
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	// Set prefetch count
+	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
+	return db, ctx
 }
