@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/go-errors/errors"
 )
 
 type User struct {
@@ -21,7 +22,7 @@ func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 	id := request.PathParameter("user-id")
 	rows, err := db.QueryContext(db.Ctx, "SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id=?", id)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalln(err.(*errors.Error).ErrorStack())
 	}
 	defer rows.Close()
 	users := make([]User, 0)

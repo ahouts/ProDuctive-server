@@ -26,6 +26,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/rana/ora.v4"
+	"github.com/go-errors/errors"
 )
 
 type loginInfo struct {
@@ -67,8 +68,7 @@ func main() {
 	mConn := migrations.MCon(*c)
 	mConn.Up()
 
-	ws := new(restful.WebService)
-	configureRoutes(c, ws)
+	restful.Add(userWs(c))
 
 	log.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(webPort), "cert.pem", "key.pem", nil))
 }
@@ -111,12 +111,12 @@ func (cfg *configuration) createTunnel() chan (bool) {
 func getCfg(cfgFile string) configuration {
 	fullPath, err := filepath.Abs(cfgFile)
 	if err != nil {
-		log.Fatalf("Failed to resolve path %v\n%v", cfgFile, err)
+		log.Fatalf("Failed to resolve path %v\n%v", cfgFile, err.(*errors.Error).ErrorStack())
 	}
 
 	file, e := ioutil.ReadFile(fullPath)
 	if e != nil {
-		log.Fatalf("File error: %v\n", e)
+		log.Fatalf("File error: %v\n", e.(*errors.Error).ErrorStack())
 	}
 	cfg := configuration{}
 	json.Unmarshal(file, &cfg)
@@ -127,7 +127,7 @@ func cfgDb(cfg configuration) (*sql.DB, context.Context) {
 	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
 	db, err := sql.Open("oci8", dbConn)
 	if err != nil {
-		log.Fatalf("Failed to connect to database...\n%v", err)
+		log.Fatalf("Failed to connect to database...\n%v", err.(*errors.Error).ErrorStack())
 	}
 
 	// Set timeout

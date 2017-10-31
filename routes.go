@@ -5,14 +5,17 @@ import (
 	restful "github.com/emicklei/go-restful"
 )
 
-func configureRoutes(c *data.Conn, ws *restful.WebService) {
+func userWs(c *data.Conn) (*restful.WebService) {
+	ws := new(restful.WebService)
 	ws.
-		Path("/users").
+	Path("/users").
 		Consumes(restful.MIME_XML, restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_XML)
 
-	ws.Route(ws.GET("/users/{user-id}").To(c.GetUser).
+	ws.Route(ws.GET("/{user-id}").To(c.GetUser).
 		Doc("get a user").
-		Param(ws.PathParameter("user-id", "id of the user").DataType("int")).
+		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
 		Writes(data.User{}))
+
+	return ws
 }
