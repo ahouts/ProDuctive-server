@@ -10,6 +10,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -19,6 +20,13 @@ type User struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+type CreateUserRequest struct {
+	Email    string
+	Password string
+}
+
+const bcryptCost = 12
 
 func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 	id := request.PathParameter("user-id")
@@ -47,5 +55,27 @@ func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 		response.WriteErrorString(http.StatusConflict, fmt.Sprintf("Found multiple users with the same id %v, exiting...", id))
 	} else {
 		response.WriteEntity(users[0])
+	}
+}
+
+func (db *Conn) CreateUser(request *restful.Request, response *restful.Response) {
+	userRequest := CreateUserRequest{}
+	err := request.ReadEntity(&userRequest)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Request invalid, request must match format %v.", userRequest))
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcryptCost)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Request invalid, failed to hash password %v.", userRequest.Password))
+		return
+	}
+
+	ctx := InitContext()
+	_, err = db.ExecContext(ctx, fmt.Sprintf("INSERT INTO user_profile VALUES(null, '%v', utl_raw.cast_to_raw('%v'), default, default)", userRequest.Email, string(hashedPassword)))
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to create user %v, %v\nerr: %v", userRequest.Email, userRequest.Password, err))
+		return
 	}
 }

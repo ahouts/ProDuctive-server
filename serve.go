@@ -17,7 +17,6 @@ import (
 	"github.com/ahouts/ProDuctive-server/data"
 	"github.com/ahouts/ProDuctive-server/migrations"
 	"github.com/ahouts/ProDuctive-server/tunnel"
-	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
 	"golang.org/x/crypto/ssh"
 )
@@ -42,9 +41,9 @@ func serve(cfgFile string, port int) {
 	c, mConn := initDb(cfgFile)
 	mConn.Up()
 
-	restful.Add(userWs(c))
+	setupRoutes(c)
 
-	fmt.Printf("Environment successfully configured, beggining to serve on port %v.\n", strconv.Itoa(port))
+	fmt.Printf("Environment successfully configured, beginning to serve on port %v.\n", strconv.Itoa(port))
 
 	log.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(port), "cert.pem", "key.pem", nil))
 }
