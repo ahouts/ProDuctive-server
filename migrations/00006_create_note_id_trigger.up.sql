@@ -8,4 +8,3 @@ CREATE OR REPLACE TRIGGER note_id_trg
     INTO :new.id
     FROM dual;
   END;
-/

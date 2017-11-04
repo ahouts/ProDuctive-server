@@ -7,4 +7,3 @@ CREATE OR REPLACE TRIGGER reminder_id_trg
     INTO   :new.id
     FROM   dual;
   END;
-/

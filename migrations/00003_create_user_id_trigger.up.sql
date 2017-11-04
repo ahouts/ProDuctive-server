@@ -8,4 +8,3 @@ CREATE OR REPLACE TRIGGER user_profile_id_trg
     INTO :new.id
     FROM dual;
   END;
-/
