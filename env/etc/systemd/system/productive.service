@@ -1,0 +1,14 @@
+[Unit]
+Description=Productive Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root
+ExecStart=/root/ProDuctive-server serve
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
