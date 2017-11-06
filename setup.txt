@@ -1,0 +1,6 @@
+choose a directory to install
+move swagger-dist, ProDuctive-server, and config-example.json binary to that directory
+cd to that directory
+mv ./config-example.json ./config.json
+edit config.json
+./ProDuctive-server serve

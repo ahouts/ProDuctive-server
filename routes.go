@@ -3,11 +3,18 @@ package main
 import (
 	"github.com/ahouts/ProDuctive-server/data"
 	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-swagger12"
 )
 
 func setupRoutes(c *data.Conn) {
 	restful.Add(userWs(c))
 	restful.Add(createUserWs(c))
+	config := swagger.Config{
+		WebServices:     restful.RegisteredWebServices(),
+		ApiPath:         "/apidocs.json",
+		SwaggerPath:     "/apidocs/",
+		SwaggerFilePath: "./swagger-dist"}
+	swagger.InstallSwaggerService(config)
 }
 
 func userWs(c *data.Conn) *restful.WebService {

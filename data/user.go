@@ -21,6 +21,17 @@ type User struct {
 	UpdatedAt    time.Time
 }
 
+func (User) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "User data",
+		"Id":           "user id",
+		"Email":        "user email, unique",
+		"PasswordHash": "hashed password using bcrypt",
+		"CreatedAt":    "timestamp the user was created at",
+		"UpdatedAt":    "timestamp the user was last updated",
+	}
+}
+
 type CreateUserRequest struct {
 	Email    string
 	Password string
