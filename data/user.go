@@ -34,7 +34,9 @@ func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
 	ctx := InitContext()
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
-		log.Fatalln(errors.New(err).ErrorStack())
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", id, err))
+		log.Println(errors.New(err).ErrorStack())
+		return
 	}
 	defer rows.Close()
 	defer ctx.Done()
