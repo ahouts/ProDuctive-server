@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"strings"
+	"strconv"
 
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
@@ -39,39 +39,27 @@ type CreateUserRequest struct {
 
 const bcryptCost = 12
 
-func (db *Conn) GetUser(request *restful.Request, response *restful.Response) {
-	id := request.PathParameter("user-id")
-	query := fmt.Sprintf("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id=%v", id)
-	ctx := InitContext()
-	rows, err := db.QueryContext(ctx, query)
+func (c *Conn) GetUser(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("user-id")
+	var u User
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", id, err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
-	defer rows.Close()
+	ctx := InitContext()
 	defer ctx.Done()
-	users := make([]User, 0)
-	for rows.Next() {
-		var u User
-		err = rows.Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
-		if err != nil && !strings.Contains(err.Error(), "unsupported Scan, storing driver.Value type <nil> into type *time.Time") {
-			log.Printf("Error while loading data from database: %v\n", errors.New(err).ErrorStack())
-			response.WriteErrorString(http.StatusConflict, fmt.Sprintf("Invalid data in database, check logs."))
-			return
-		}
-		users = append(users, u)
+	err = c.QueryRowContext(ctx, "SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = :1", id).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
+		log.Println(errors.New(err).ErrorStack())
+		return
 	}
-	if len(users) == 0 {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("User with id %v could not be found.", id))
-	} else if len(users) > 1 {
-		response.WriteErrorString(http.StatusConflict, fmt.Sprintf("Found multiple users with the same id %v, exiting...", id))
-	} else {
-		response.WriteEntity(users[0])
-	}
+	response.WriteEntity(u)
 }
 
-func (db *Conn) CreateUser(request *restful.Request, response *restful.Response) {
+func (c *Conn) CreateUser(request *restful.Request, response *restful.Response) {
 	userRequest := CreateUserRequest{}
 	err := request.ReadEntity(&userRequest)
 	if err != nil {
@@ -85,10 +73,17 @@ func (db *Conn) CreateUser(request *restful.Request, response *restful.Response)
 		return
 	}
 
-	ctx := InitContext()
-	_, err = db.ExecContext(ctx, fmt.Sprintf("INSERT INTO user_profile VALUES(null, '%v', utl_raw.cast_to_raw('%v'), default, default)", userRequest.Email, string(hashedPassword)))
+	tx, err := c.InitTransaction()
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to create user %v, %v\nerr: %v", userRequest.Email, userRequest.Password, err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Failed to initialize a transaction.\n%v", err))
+		log.Println(errors.New(err).ErrorStack())
 		return
 	}
+	_, err = tx.Exec("INSERT INTO user_profile VALUES(null, :1, utl_raw.cast_to_raw(:2), default, default)", userRequest.Email, string(hashedPassword))
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to create user %v, %v\nerr: %v", userRequest.Email, userRequest.Password, err))
+		tx.Rollback()
+		return
+	}
+	tx.Commit()
 }

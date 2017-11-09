@@ -21,3 +21,8 @@ func InitContext() context.Context {
 	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
 	return ctx
 }
+
+func (c *Conn) InitTransaction() (*sql.Tx, error) {
+	ctx := InitContext()
+	return c.BeginTx(ctx, nil)
+}
