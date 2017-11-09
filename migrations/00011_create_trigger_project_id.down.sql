@@ -1,0 +1,1 @@
+DROP TRIGGER project_id_trg

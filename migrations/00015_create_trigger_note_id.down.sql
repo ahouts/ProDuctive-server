@@ -1,0 +1,1 @@
+DROP TRIGGER note_id_trg

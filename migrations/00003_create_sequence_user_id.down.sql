@@ -1,0 +1,1 @@
+DROP SEQUENCE user_profile_id_seq

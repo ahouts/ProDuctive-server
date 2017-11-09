@@ -1,0 +1,1 @@
+CREATE SEQUENCE project_id_seq START WITH 1

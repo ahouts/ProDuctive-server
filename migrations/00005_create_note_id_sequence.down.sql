@@ -1,1 +1,0 @@
-drop sequence note_id_seq

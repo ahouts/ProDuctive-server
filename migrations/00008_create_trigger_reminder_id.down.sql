@@ -1,0 +1,1 @@
+DROP TRIGGER reminder_id_trg

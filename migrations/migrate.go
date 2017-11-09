@@ -42,7 +42,7 @@ func (c *MCon) Up() {
 			ctx := data.InitContext()
 			_, err = c.ExecContext(ctx, migStr)
 			if err != nil {
-				log.Fatalln(errors.New(err).ErrorStack())
+				log.Fatalln(mig, errors.New(err).ErrorStack())
 			}
 			ctx.Done()
 			c.insertMig(mig)

@@ -1,7 +1,7 @@
 CREATE OR REPLACE TRIGGER user_profile_id_trg
-  BEFORE INSERT
+BEFORE INSERT
   ON user_profile
-  FOR EACH ROW
+FOR EACH ROW
 
   BEGIN
     SELECT user_profile_id_seq.NEXTVAL

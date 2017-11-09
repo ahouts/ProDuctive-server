@@ -1,0 +1,1 @@
+DROP TRIGGER update_user_profile_updated_at

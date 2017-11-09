@@ -1,1 +1,1 @@
-drop table user_profile
+DROP TABLE user_profile
