@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"strconv"
+
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
 )
@@ -18,30 +20,31 @@ type Reminder struct {
 	UpdatedAt time.Time
 }
 
-type GetRemindersRequest struct {
-	Email    string
-	Password string
+type GetReminderRequest struct {
+	Email    string `json:"Email"`
+	Password string `json:"Password"`
 }
 
 func (s *DbSession) GetReminders(request *restful.Request, response *restful.Response) {
-	reminderRequest := GetRemindersRequest{}
+	reminderRequest := GetReminderRequest{}
 	err := request.ReadEntity(&reminderRequest)
+
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Request invalid, must match format:\n%v", reminderRequest))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
 	tx, err := s.InitTransaction()
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to initialize database context.\n%v.", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
 	id, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Failed to authenticate request.\n%v.", err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -49,7 +52,7 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 
 	rows, err := tx.Query("SELECT id, user_id, body, created_at, updated_at FROM reminder WHERE user_id = :1", id)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Failed to query db for reminders.\n%v", err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for reminders: %v", err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -61,7 +64,7 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 		err = rows.Scan(&r.Id, &r.UserId, &r.Body, &r.CreatedAt, &r.UpdatedAt)
 		if err != nil {
 			log.Printf("Error while loading row from database: %v\n", errors.New(err).ErrorStack())
-			response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Error while loading row from database, check logs."))
+			response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("error while loading row from database, check logs"))
 			tx.Rollback()
 			return
 		}
@@ -70,7 +73,7 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 
 	if err = rows.Err(); err != nil {
 		log.Printf("Error while loading row from database: %v\n", errors.New(err).ErrorStack())
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Error while loading row from database, check logs."))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("error while loading row from database, check logs"))
 		tx.Rollback()
 		return
 	}
@@ -78,7 +81,7 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 	rows.Close()
 	err = tx.Commit()
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to commit change.\n%v", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
 		tx.Rollback()
 		return
 	}
@@ -86,10 +89,61 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 	response.WriteEntity(reminders)
 }
 
+func (s *DbSession) GetReminder(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("reminder-id")
+	reminderId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, reminder id %v is invalid.\n%v", idStr, err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	reminderRequest := GetReminderRequest{}
+	err = request.ReadEntity(&reminderRequest)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	res := Reminder{}
+	err = tx.QueryRow("SELECT id, user_id, body, created_at, updated_at FROM reminder WHERE user_id = :1 AND id = :2", userId, reminderId).
+		Scan(&res.Id, &res.UserId, &res.Body, &res.CreatedAt, &res.UpdatedAt)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for reminder %v: %v", reminderId, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		return
+	}
+	response.WriteEntity(res)
+}
+
 type CreateReminderRequest struct {
-	Email    string
-	Password string
-	Body     string
+	Email    string `json:"Email"`
+	Password string `json:"Password"`
+	Body     string `json:"Body"`
 }
 
 func (s *DbSession) CreateReminder(request *restful.Request, response *restful.Response) {
@@ -166,7 +220,7 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 	var reminderUserId int
 	err = tx.QueryRow("SELECT user_id FROM reminder WHERE id=:1", reminderRequest.ReminderId).Scan(&reminderUserId)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for reminder id: %v", err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for reminder id %v: %v", reminderRequest.ReminderId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return

@@ -33,6 +33,7 @@ func userWs(s *data.DbSession) *restful.WebService {
 		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
 		Writes(new(data.User)))
 
+	ws.Filter(enableCORS)
 	return ws
 }
 
@@ -47,6 +48,7 @@ func getUserIdWs(s *data.DbSession) *restful.WebService {
 		Reads(new(data.GetUserIdRequest)).
 		Writes(new(data.UserId)))
 
+	ws.Filter(enableCORS)
 	return ws
 }
 
@@ -58,8 +60,14 @@ func remindersWs(s *data.DbSession) *restful.WebService {
 
 	ws.Route(ws.PUT("/get").To(s.GetReminders).
 		Doc("get a user's reminders").
-		Reads(data.GetRemindersRequest{}).
+		Reads(data.GetReminderRequest{}).
 		Writes(new([]data.Reminder)))
+
+	ws.Route(ws.PUT("/get/{reminder-id}").To(s.GetReminder).
+		Doc("get a user's reminder").
+		Param(ws.PathParameter("reminder-id", "id of the reminder").DataType("string")).
+		Reads(data.GetReminderRequest{}).
+		Writes(new(data.Reminder)))
 
 	ws.Route(ws.POST("/").To(s.CreateReminder).
 		Doc("create a reminder").
@@ -69,5 +77,12 @@ func remindersWs(s *data.DbSession) *restful.WebService {
 		Doc("update a reminder").
 		Reads(new(data.UpdateReminderRequest)))
 
+	ws.Filter(enableCORS)
 	return ws
+}
+
+func enableCORS(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+	resp.AddHeader("Access-Control-Allow-Origin", "*")
+	resp.AddHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+	chain.ProcessFilter(req, resp)
 }
