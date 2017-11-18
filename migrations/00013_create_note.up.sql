@@ -1,8 +1,8 @@
 CREATE TABLE note (
   id         NUMBER PRIMARY KEY,
-  title      VARCHAR(400) NOT NULL,
-  body       LONG RAW     NOT NULL,
-  owner_id   NUMBER       NOT NULL,
+  title      VARCHAR(400)   NOT NULL,
+  body       VARCHAR2(4000) NOT NULL,
+  owner_id   NUMBER         NOT NULL,
   project_id NUMBER,
   created_at TIMESTAMP DEFAULT current_timestamp,
   updated_at TIMESTAMP DEFAULT current_timestamp,

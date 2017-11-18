@@ -9,7 +9,7 @@ if len(sys.argv) != 3:
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1], 'Password': sys.argv[2]}
-req = urllib.request.Request('https://productive.ahouts.com/create_user')
+req = urllib.request.Request('https://productive.ahouts.com/user')
 req.add_header('Content-Type', 'application/json')
 try:
     response = urllib.request.urlopen(req, json.dumps(dat).encode())

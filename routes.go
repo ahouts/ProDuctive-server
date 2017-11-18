@@ -8,9 +8,8 @@ import (
 
 func setupRoutes(s *data.DbSession) {
 	restful.Add(userWs(s))
-	restful.Add(createUserWs(s))
 	restful.Add(getUserIdWs(s))
-	restful.Add(getRemindersWs(s))
+	restful.Add(remindersWs(s))
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(),
 		ApiPath:         "/apidocs.json",
@@ -21,27 +20,18 @@ func setupRoutes(s *data.DbSession) {
 
 func userWs(s *data.DbSession) *restful.WebService {
 	ws := new(restful.WebService)
-	ws.Path("/users").
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON)
-
-	ws.Route(ws.GET("/{user-id}").To(s.GetUser).
-		Doc("get a user").
-		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
-		Writes(data.User{}))
-
-	return ws
-}
-
-func createUserWs(s *data.DbSession) *restful.WebService {
-	ws := new(restful.WebService)
-	ws.Path("/create_user").
+	ws.Path("/user").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
 	ws.Route(ws.POST("/").To(s.CreateUser).
 		Doc("create a user").
-		Reads(data.CreateUserRequest{}))
+		Reads(new(data.CreateUserRequest)))
+
+	ws.Route(ws.GET("/{user-id}").To(s.GetUser).
+		Doc("get a user").
+		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
+		Writes(new(data.User)))
 
 	return ws
 }
@@ -54,21 +44,30 @@ func getUserIdWs(s *data.DbSession) *restful.WebService {
 
 	ws.Route(ws.POST("/").To(s.GetUserId).
 		Doc("get a user's id").
-		Reads(data.GetUserIdRequest{}).
-		Writes(data.UserId{}))
+		Reads(new(data.GetUserIdRequest)).
+		Writes(new(data.UserId)))
 
 	return ws
 }
 
-func getRemindersWs(s *data.DbSession) *restful.WebService {
+func remindersWs(s *data.DbSession) *restful.WebService {
 	ws := new(restful.WebService)
-	ws.Path("/reminders").
+	ws.Path("/reminder").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.POST("/").To(s.GetReminders).
+	ws.Route(ws.PUT("/get").To(s.GetReminders).
 		Doc("get a user's reminders").
 		Reads(data.GetRemindersRequest{}).
-		Writes([]data.Reminder{}))
+		Writes(new([]data.Reminder)))
+
+	ws.Route(ws.POST("/").To(s.CreateReminder).
+		Doc("create a reminder").
+		Reads(new(data.CreateReminderRequest)))
+
+	ws.Route(ws.PUT("/").To(s.UpdateReminder).
+		Doc("update a reminder").
+		Reads(new(data.UpdateReminderRequest)))
+
 	return ws
 }
