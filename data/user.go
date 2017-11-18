@@ -72,11 +72,6 @@ func (CreateUserRequest) SwaggerDoc() map[string]string {
 	}
 }
 
-type UserCreated struct {
-	Email string
-	Id int
-}
-
 const bcryptCost = 12
 
 func (s *DbSession) CreateUser(request *restful.Request, response *restful.Response) {
@@ -99,7 +94,7 @@ func (s *DbSession) CreateUser(request *restful.Request, response *restful.Respo
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
-	insertUser, err := tx.Prepare("INSERT INTO user_profile VALUES(null, :1, utl_raw.cast_to_raw(:2), default, default)")
+	insertUser, err := tx.Prepare("INSERT INTO user_profile VALUES(NULL, :1, utl_raw.cast_to_raw(:2), default, default)")
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to prepare insert command for %v: %v", userRequest.Email, err))
 		tx.Rollback()
@@ -117,6 +112,54 @@ func (s *DbSession) CreateUser(request *restful.Request, response *restful.Respo
 		tx.Rollback()
 		return
 	}
+}
+
+type GetUserIdRequest struct {
+	Email string
+}
+
+func (GetUserIdRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "form to get user's id",
+		"Email": "user to get the id of",
+	}
+}
+
+type UserId struct {
+	Id int
+}
+
+func (UserId) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":   "user's id",
+		"Id": "user's id",
+	}
+}
+
+func (s *DbSession) GetUserId(request *restful.Request, response *restful.Response) {
+	userIdReq := GetUserIdRequest{}
+	err := request.ReadEntity(&userIdReq)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v.", userIdReq))
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to initialize a transaction: %v", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+	uid := UserId{}
+	err = tx.QueryRow("SELECT id FROM user_profile WHERE email = :1", userIdReq.Email).Scan(&uid.Id)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to find user with email %v: %v", userIdReq.Email, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+	response.WriteEntity(uid)
+	tx.Commit()
 }
 
 // returns id if successful, error otherwise

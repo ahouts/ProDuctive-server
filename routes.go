@@ -9,6 +9,7 @@ import (
 func setupRoutes(s *data.DbSession) {
 	restful.Add(userWs(s))
 	restful.Add(createUserWs(s))
+	restful.Add(getUserIdWs(s))
 	restful.Add(getRemindersWs(s))
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(),
@@ -41,6 +42,20 @@ func createUserWs(s *data.DbSession) *restful.WebService {
 	ws.Route(ws.POST("/").To(s.CreateUser).
 		Doc("create a user").
 		Reads(data.CreateUserRequest{}))
+
+	return ws
+}
+
+func getUserIdWs(s *data.DbSession) *restful.WebService {
+	ws := new(restful.WebService)
+	ws.Path("/get_user_id").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
+
+	ws.Route(ws.POST("/").To(s.GetUserId).
+		Doc("get a user's id").
+		Reads(data.GetUserIdRequest{}).
+		Writes(data.UserId{}))
 
 	return ws
 }
