@@ -38,10 +38,10 @@ const oraclePort = 1521
 const sshPort = 22
 
 func serve(cfgFile string, port int) {
-	c, mConn := initDb(cfgFile)
-	mConn.Up()
+	s := initDb(cfgFile)
+	migrations.Up(s)
 
-	setupRoutes(c)
+	setupRoutes(s)
 
 	fmt.Printf("Environment successfully configured, beginning to serve on port %v.\n", strconv.Itoa(port))
 
@@ -49,11 +49,11 @@ func serve(cfgFile string, port int) {
 }
 
 func dropDb(cfgFile string) {
-	_, mConn := initDb(cfgFile)
-	mConn.Down()
+	s := initDb(cfgFile)
+	migrations.Down(s)
 }
 
-func initDb(cfgFile string) (*data.Conn, migrations.MCon) {
+func initDb(cfgFile string) (*data.DbSession) {
 	cfg := getCfg(cfgFile)
 
 	// this function returns a channel that returns a value once its done
@@ -61,11 +61,9 @@ func initDb(cfgFile string) (*data.Conn, migrations.MCon) {
 	<-cfg.createTunnel()
 
 	db := cfgDb(cfg)
-	defer db.Close()
 
-	c := &data.Conn{DB: *db}
-	mConn := migrations.MCon(*c)
-	return c, mConn
+	s := &data.DbSession{DB: db}
+	return s
 }
 
 func (cfg *configuration) createTunnel() chan (bool) {
@@ -98,7 +96,7 @@ func (cfg *configuration) createTunnel() chan (bool) {
 		Server: serverEndpoint,
 		Remote: remoteEndpoint,
 	}
-	ready := make(chan (bool))
+	ready := make(chan bool)
 	go tun.Start(ready)
 	return ready
 }

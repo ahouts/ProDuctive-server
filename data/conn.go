@@ -4,25 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"time"
-
-	"gopkg.in/rana/ora.v4"
 )
 
-const dbPrefetchRowCount = 50000
-
-type Conn struct {
-	sql.DB
+type DbSession struct {
+	DB *sql.DB
 }
 
-func InitContext() context.Context {
-	// Set timeout
+func initContext() context.Context {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	// Set prefetch count
-	ctx = ora.WithStmtCfg(ctx, ora.Cfg().StmtCfg.SetPrefetchRowCount(dbPrefetchRowCount))
 	return ctx
 }
 
-func (c *Conn) InitTransaction() (*sql.Tx, error) {
-	ctx := InitContext()
-	return c.BeginTx(ctx, nil)
+func (s *DbSession) InitTransaction() (*sql.Tx, error) {
+	tx, err := s.DB.BeginTx(initContext(), nil)
+	return tx, err
 }

@@ -11,75 +11,84 @@ import (
 
 	"regexp"
 
+	"database/sql"
+
 	"github.com/ahouts/ProDuctive-server/data"
 	"github.com/go-errors/errors"
 )
 
-type MCon data.Conn
+const mHistoryName = "migration_history"
 
-const m_history_name = "migration_history"
-
-func (c *MCon) Up() {
-	if !c.tableExist(m_history_name) {
+func Up(s *data.DbSession) {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		log.Fatalf("failed to init context %v", err)
+	}
+	if !tableExist(tx, mHistoryName) {
 		createMigrationsStr, err := migrationsCreate_migrationsSqlBytes()
 		if err != nil {
+			tx.Rollback()
 			log.Fatalf("Failed to find create migrations command\n%v", errors.New(err).ErrorStack())
 		}
-		ctx := data.InitContext()
-		c.ExecContext(ctx, fmt.Sprintf(string(createMigrationsStr), m_history_name))
-		ctx.Done()
+		_, err = tx.Exec(fmt.Sprintf(string(createMigrationsStr), mHistoryName))
+		if err != nil {
+			tx.Rollback()
+			log.Fatalln(errors.New(err).ErrorStack())
+		}
 	}
 
 	migs := getUpMigs()
 	sort.Strings(migs)
 	for _, mig := range migs {
-		if !c.mExist(mig) {
+		if !mExist(tx, mig) {
 			migBytes, err := Asset(mig)
 			if err != nil {
+				tx.Rollback()
 				log.Fatalln(errors.New(err).ErrorStack())
 			}
 			migStr := string(migBytes)
-			ctx := data.InitContext()
-			_, err = c.ExecContext(ctx, migStr)
+			_, err = tx.Exec(migStr)
 			if err != nil {
+				tx.Rollback()
 				log.Fatalln(mig, errors.New(err).ErrorStack())
 			}
-			ctx.Done()
-			c.insertMig(mig)
-			ctx = data.InitContext()
-			_, err = c.ExecContext(ctx, "COMMIT")
-			ctx.Done()
-			if err != nil {
-				log.Fatalln(errors.New(err).ErrorStack())
-			}
+			insertMig(tx, mig)
 		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Fatalf("failed to commit changes, %v", err)
 	}
 }
 
-func (c *MCon) Down() {
+func Down(s *data.DbSession) {
 	migs := getDownMigs()
 	sort.Sort(sort.Reverse(sort.StringSlice(migs)))
+
+	tx, err := s.DB.Begin()
+	if err != nil {
+		log.Fatalf("failed to init context %v", err)
+	}
 	for _, mig := range migs {
-		if c.mExist(mig) {
+		if mExist(tx, mig) {
 			migBytes, err := Asset(mig)
 			if err != nil {
+				tx.Rollback()
 				log.Fatalln(errors.New(err).ErrorStack())
 			}
 			migStr := string(migBytes)
-			ctx := data.InitContext()
-			_, err = c.ExecContext(ctx, migStr)
+			_, err = tx.Exec(migStr)
 			if err != nil {
+				tx.Rollback()
 				log.Fatalln(errors.New(err).ErrorStack())
 			}
-			ctx.Done()
-			c.removeMig(mig)
-			ctx = data.InitContext()
-			_, err = c.ExecContext(ctx, "COMMIT")
-			ctx.Done()
-			if err != nil {
-				log.Fatalln(errors.New(err).ErrorStack())
-			}
+			removeMig(tx, mig)
 		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		log.Fatalf("failed to commit changes, %v", err)
 	}
 }
 
@@ -113,11 +122,12 @@ func getFilename(fullName string) string {
 	return parts[0]
 }
 
-func (c *MCon) tableExist(tablename string) bool {
+func tableExist(tx *sql.Tx, tablename string) bool {
 	s := fmt.Sprintf("select table_name from user_tables where table_name='%v'", strings.ToUpper(tablename))
-	rows, err := c.Query(s)
+	rows, err := tx.Query(s)
 	defer rows.Close()
 	if err != nil {
+		tx.Rollback()
 		log.Fatalf("Failed to serach tables.\n%v", errors.New(err).ErrorStack())
 	}
 	for rows.Next() {
@@ -126,39 +136,37 @@ func (c *MCon) tableExist(tablename string) bool {
 	return false
 }
 
-func (c *MCon) insertMig(migName string) {
-	s := fmt.Sprintf("INSERT INTO %v VALUES('%v')", m_history_name, getFilename(migName))
-	ctx := data.InitContext()
-	_, err := c.ExecContext(ctx, s)
-	ctx.Done()
+func insertMig(tx *sql.Tx, migName string) {
+	s := fmt.Sprintf("INSERT INTO %v VALUES('%v')", mHistoryName, getFilename(migName))
+	_, err := tx.Exec(s)
 	if err != nil {
+		tx.Rollback()
 		log.Fatalln(errors.New(err).ErrorStack())
 	}
 }
 
-func (c *MCon) removeMig(migName string) {
-	s := fmt.Sprintf("DELETE FROM %v WHERE mig = '%v'", m_history_name, getFilename(migName))
-	ctx := data.InitContext()
-	_, err := c.ExecContext(ctx, s)
-	ctx.Done()
+func removeMig(tx *sql.Tx, migName string) {
+	s := fmt.Sprintf("DELETE FROM %v WHERE mig = '%v'", mHistoryName, getFilename(migName))
+	_, err := tx.Exec(s)
 	if err != nil {
+		tx.Rollback()
 		log.Fatalln(errors.New(err).ErrorStack())
 	}
 }
 
-func (c *MCon) getRunMigrations() []string {
+func getRunMigrations(tx *sql.Tx) []string {
 	migs := make([]string, 0)
-	query := fmt.Sprintf("SELECT mig FROM %v", m_history_name)
-	ctx := data.InitContext()
-	rows, err := c.QueryContext(ctx, query)
-	defer ctx.Done()
+	query := fmt.Sprintf("SELECT mig FROM %v", mHistoryName)
+	rows, err := tx.Query(query)
 	defer rows.Close()
 	if err != nil {
+		tx.Rollback()
 		log.Fatalf("Failed to find existing migrations.\n%v", errors.New(err).ErrorStack())
 	}
 	for rows.Next() {
 		var mig string
 		if err := rows.Scan(&mig); err != nil {
+			tx.Rollback()
 			log.Fatalln(errors.New(err).ErrorStack())
 		}
 		migs = append(migs, mig)
@@ -166,23 +174,24 @@ func (c *MCon) getRunMigrations() []string {
 	return migs
 }
 
-func (c *MCon) mExist(migName string) bool {
-	query := fmt.Sprintf(`select 'Y' from dual where exists (select 1 from %v where mig = '%v')`, m_history_name, getFilename(migName))
-	ctx := data.InitContext()
-	rows, err := c.QueryContext(ctx, query)
-	defer ctx.Done()
+func mExist(tx *sql.Tx, migName string) bool {
+	query := fmt.Sprintf(`select 'Y' from dual where exists (select 1 from %v where mig = '%v')`, mHistoryName, getFilename(migName))
+	rows, err := tx.Query(query)
 	defer rows.Close()
 	if err != nil {
+		tx.Rollback()
 		log.Fatalf("Failed to check if migration %v exists\n%v", migName, errors.New(err).ErrorStack())
 	}
 	for rows.Next() {
 		var res string
 		if err := rows.Scan(&res); err != nil {
+			tx.Rollback()
 			log.Fatalln(errors.New(err).ErrorStack())
 		}
 		if res == "Y" {
 			return true
 		} else {
+			tx.Rollback()
 			log.Fatalf("%v is not 'Y'", res)
 		}
 	}

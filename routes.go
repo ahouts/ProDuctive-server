@@ -6,9 +6,10 @@ import (
 	"github.com/emicklei/go-restful-swagger12"
 )
 
-func setupRoutes(c *data.Conn) {
-	restful.Add(userWs(c))
-	restful.Add(createUserWs(c))
+func setupRoutes(s *data.DbSession) {
+	restful.Add(userWs(s))
+	restful.Add(createUserWs(s))
+	restful.Add(getRemindersWs(s))
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(),
 		ApiPath:         "/apidocs.json",
@@ -17,13 +18,13 @@ func setupRoutes(c *data.Conn) {
 	swagger.InstallSwaggerService(config)
 }
 
-func userWs(c *data.Conn) *restful.WebService {
+func userWs(s *data.DbSession) *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/users").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.GET("/{user-id}").To(c.GetUser).
+	ws.Route(ws.GET("/{user-id}").To(s.GetUser).
 		Doc("get a user").
 		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
 		Writes(data.User{}))
@@ -31,15 +32,28 @@ func userWs(c *data.Conn) *restful.WebService {
 	return ws
 }
 
-func createUserWs(c *data.Conn) *restful.WebService {
+func createUserWs(s *data.DbSession) *restful.WebService {
 	ws := new(restful.WebService)
 	ws.Path("/create_user").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.POST("/").To(c.CreateUser).
+	ws.Route(ws.POST("/").To(s.CreateUser).
 		Doc("create a user").
 		Reads(data.CreateUserRequest{}))
 
+	return ws
+}
+
+func getRemindersWs(s *data.DbSession) *restful.WebService {
+	ws := new(restful.WebService)
+	ws.Path("/reminders").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
+
+	ws.Route(ws.POST("/").To(s.GetReminders).
+		Doc("get a user's reminders").
+		Reads(data.GetRemindersRequest{}).
+		Writes([]data.Reminder{}))
 	return ws
 }
