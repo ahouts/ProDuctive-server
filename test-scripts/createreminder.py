@@ -1,6 +1,6 @@
-#!/bin/python
+#!/bin/python2
 
-import urllib.request
+import requests
 import json
 import sys
 
@@ -9,11 +9,7 @@ if len(sys.argv) != 4:
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1], 'Password': sys.argv[2], 'Body': sys.argv[3]}
-req = urllib.request.Request('https://productive.ahouts.com/reminder')
-req.add_header('Content-Type', 'application/json')
-req.get_method = lambda: "POST"
-try:
-    response = urllib.request.urlopen(req, json.dumps(dat).encode())
-except urllib.request.HTTPError as e:
-    error_message = e.read()
-    print(error_message)
+req = requests.post('https://productive.ahouts.com/reminder',
+                   headers={'Content-Type': 'application/json'},
+                   data=json.dumps(dat).encode())
+print(req.text)
