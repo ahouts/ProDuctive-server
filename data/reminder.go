@@ -47,8 +47,6 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 		return
 	}
 
-	fmt.Printf("User id: %v\n", id)
-
 	rows, err := tx.Query("SELECT id, user_id, body, created_at, updated_at FROM reminder WHERE user_id = :1", id)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Failed to query db for reminders.\n%v", err))
@@ -67,7 +65,6 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 			tx.Rollback()
 			return
 		}
-		fmt.Printf("Scanned reminder %v\n", r)
 		reminders = append(reminders, r)
 	}
 
@@ -85,8 +82,6 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 		tx.Rollback()
 		return
 	}
-
-	fmt.Printf("All reminders %v\n", reminders)
 
 	response.WriteEntity(reminders)
 }
