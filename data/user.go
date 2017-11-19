@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"strconv"
-
 	"database/sql"
 
 	"github.com/emicklei/go-restful"
@@ -34,23 +32,37 @@ func (User) SwaggerDoc() map[string]string {
 	}
 }
 
+type GetUserRequest struct {
+	Email    string
+	Password string
+}
+
 func (s *DbSession) GetUser(request *restful.Request, response *restful.Response) {
-	idStr := request.PathParameter("user-id")
-	id, err := strconv.Atoi(idStr)
+	userRequest := GetUserRequest{}
+	err := request.ReadEntity(&userRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v.", userRequest))
 		return
 	}
+
 	tx, err := s.InitTransaction()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to initialize a transaction.\n%v", err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
-	var u User
-	err = tx.QueryRow("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = :1", id).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+
+	userId, err := AuthUser(tx, userRequest.Email, userRequest.Password)
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var u User
+	err = tx.QueryRow("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = :1", userId).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", userId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return

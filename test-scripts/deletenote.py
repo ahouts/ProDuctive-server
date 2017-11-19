@@ -5,11 +5,11 @@ import json
 import sys
 
 if len(sys.argv) != 4:
-    print("format: ./getnote.py username password id")
+    print("format: ./deletenote.py username password id")
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1], 'Password': sys.argv[2]}
-req = requests.put('https://productive.ahouts.com/note/' + sys.argv[3], 
+req = requests.put('https://productive.ahouts.com/note/delete/' + sys.argv[3], 
                    headers={'Content-Type': 'application/json'}, 
                    data=json.dumps(dat).encode())
 print(req.text)

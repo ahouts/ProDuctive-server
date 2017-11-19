@@ -216,3 +216,128 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 		return
 	}
 }
+
+type DeleteNoteRequest struct {
+	Email    string
+	Password string
+}
+
+func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("note-id")
+	noteId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, note id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	noteRequest := DeleteNoteRequest{}
+	err = request.ReadEntity(&noteRequest)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", noteRequest))
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, noteRequest.Email, noteRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to view note %v", noteId))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM note WHERE id = :1", noteId)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete reminder %v: %v", noteId, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+}
+
+type UpdateNoteRequest struct {
+	Email    string
+	Password string
+}
+
+//func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Response) {
+//	reminderRequest := UpdateReminderRequest{}
+//	err := request.ReadEntity(&reminderRequest)
+//	if err != nil {
+//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+//		return
+//	}
+//
+//	tx, err := s.InitTransaction()
+//	if err != nil {
+//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context.\n%v.", err))
+//		log.Println(errors.New(err).ErrorStack())
+//		return
+//	}
+//
+//	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+//	if err != nil {
+//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+//		tx.Rollback()
+//		return
+//	}
+//
+//	var reminderUserId int
+//	err = tx.QueryRow("SELECT user_id FROM reminder WHERE id=:1", reminderRequest.ReminderId).Scan(&reminderUserId)
+//	if err != nil {
+//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for reminder id %v: %v", reminderRequest.ReminderId, err))
+//		log.Println(errors.New(err).ErrorStack())
+//		tx.Rollback()
+//		return
+//	}
+//
+//	if reminderUserId != userId {
+//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's reminder", reminderRequest.ReminderId, userId))
+//		tx.Rollback()
+//		return
+//	}
+//
+//	_, err = tx.Exec("UPDATE reminder SET body = :1, updated_at = :2 WHERE id = :3", reminderRequest.Body, time.Now(), reminderRequest.ReminderId)
+//	if err != nil {
+//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to update reminder: %v", err))
+//		log.Println(errors.New(err).ErrorStack())
+//		tx.Rollback()
+//		return
+//	}
+//
+//	err = tx.Commit()
+//	if err != nil {
+//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+//		tx.Rollback()
+//		log.Println(errors.New(err).ErrorStack())
+//		return
+//	}
+//}

@@ -9,7 +9,7 @@ if len(sys.argv) != 2:
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1]}
-req = requests.post('https://productive.ahouts.com/get_user_id',
+req = requests.put('https://productive.ahouts.com/user/getid',
                    headers={'Content-Type': 'application/json'},
                    data=json.dumps(dat).encode())
 print(req.text)

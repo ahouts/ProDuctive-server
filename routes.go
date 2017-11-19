@@ -8,7 +8,6 @@ import (
 
 func setupRoutes(s *data.DbSession) {
 	restful.Add(userWs(s))
-	restful.Add(getUserIdWs(s))
 	restful.Add(remindersWs(s))
 	restful.Add(noteWs(s))
 	config := swagger.Config{
@@ -25,29 +24,19 @@ func userWs(s *data.DbSession) *restful.WebService {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.POST("/").To(s.CreateUser).
-		Doc("create a user").
-		Reads(new(data.CreateUserRequest)))
-
-	ws.Route(ws.GET("/{user-id}").To(s.GetUser).
-		Doc("get a user").
-		Param(ws.PathParameter("user-id", "identifier of the user").DataType("string")).
-		Writes(new(data.User)))
-
-	ws.Filter(enableCORS)
-	return ws
-}
-
-func getUserIdWs(s *data.DbSession) *restful.WebService {
-	ws := new(restful.WebService)
-	ws.Path("/get_user_id").
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON)
-
-	ws.Route(ws.POST("/").To(s.GetUserId).
+	ws.Route(ws.PUT("/getid").To(s.GetUserId).
 		Doc("get a user's id").
 		Reads(new(data.GetUserIdRequest)).
 		Writes(new(data.UserId)))
+
+	ws.Route(ws.PUT("/").To(s.GetUser).
+		Doc("get a user's info").
+		Reads(new(data.GetUserRequest)).
+		Writes(new(data.User)))
+
+	ws.Route(ws.POST("/").To(s.CreateUser).
+		Doc("create a user").
+		Reads(new(data.CreateUserRequest)))
 
 	ws.Filter(enableCORS)
 	return ws
@@ -59,12 +48,12 @@ func remindersWs(s *data.DbSession) *restful.WebService {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.PUT("/get").To(s.GetReminders).
+	ws.Route(ws.PUT("/").To(s.GetReminders).
 		Doc("get a user's reminders").
 		Reads(data.GetReminderRequest{}).
 		Writes(new([]data.Reminder)))
 
-	ws.Route(ws.PUT("/get/{reminder-id}").To(s.GetReminder).
+	ws.Route(ws.PUT("/{reminder-id}").To(s.GetReminder).
 		Doc("get a user's reminder").
 		Param(ws.PathParameter("reminder-id", "id of the reminder").DataType("string")).
 		Reads(data.GetReminderRequest{}).
@@ -74,7 +63,7 @@ func remindersWs(s *data.DbSession) *restful.WebService {
 		Doc("create a reminder").
 		Reads(new(data.CreateReminderRequest)))
 
-	ws.Route(ws.PUT("/").To(s.UpdateReminder).
+	ws.Route(ws.POST("/{reminder-id}").To(s.UpdateReminder).
 		Doc("update a reminder").
 		Reads(new(data.UpdateReminderRequest)))
 
@@ -92,18 +81,18 @@ func noteWs(s *data.DbSession) *restful.WebService {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.PUT("/get").To(s.GetNotes).
+	ws.Route(ws.PUT("/").To(s.GetNotes).
 		Doc("get a user's notes").
 		Reads(data.GetNoteRequest{}).
 		Writes(new([]data.NoteMetadata)))
 
-	ws.Route(ws.PUT("/get/{note-id}").To(s.GetNote).
+	ws.Route(ws.PUT("/{note-id}").To(s.GetNote).
 		Doc("get a user's note").
 		Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
 		Reads(data.GetNoteRequest{}).
 		Writes(new(data.Note)))
 
-	//ws.Route(ws.PUT("/get/{note-id}/add_user").To(s.AddUserToNote).
+	//ws.Route(ws.POST("/{note-id}/add_user").To(s.AddUserToNote).
 	//	Doc("add a user to a note").
 	//	Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
 	//	Reads(data.AddUserToNoteRequest{}))
@@ -111,13 +100,16 @@ func noteWs(s *data.DbSession) *restful.WebService {
 	ws.Route(ws.POST("/").To(s.CreateNote).
 		Doc("create a note").
 		Reads(new(data.CreateNoteRequest)))
-	//
-	//ws.Route(ws.PUT("/").To(s.UpdateNote).
+
+	//ws.Route(ws.POST("/{note-id}").To(s.UpdateNote).
 	//	Doc("update a note").
+	//  Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
 	//	Reads(new(data.UpdateNoteRequest)))
-	//ws.Route(ws.PUT("/delete").To(s.DeleteNote).
-	//	Doc("delete a note").
-	//	Reads(new(data.DeleteNoteRequest)))
+
+	ws.Route(ws.PUT("/delete/{note-id}").To(s.DeleteNote).
+		Doc("delete a note").
+		Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
+		Reads(new(data.DeleteNoteRequest)))
 
 	ws.Filter(enableCORS)
 	return ws

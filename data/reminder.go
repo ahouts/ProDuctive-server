@@ -183,15 +183,21 @@ func (s *DbSession) CreateReminder(request *restful.Request, response *restful.R
 }
 
 type UpdateReminderRequest struct {
-	Email      string
-	Password   string
-	ReminderId int
-	Body       string
+	Email    string
+	Password string
+	Body     string
 }
 
 func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("reminder-id")
+	reminderId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, reminder id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
 	reminderRequest := UpdateReminderRequest{}
-	err := request.ReadEntity(&reminderRequest)
+	err = request.ReadEntity(&reminderRequest)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
 		return
@@ -212,21 +218,21 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 	}
 
 	var reminderUserId int
-	err = tx.QueryRow("SELECT user_id FROM reminder WHERE id=:1", reminderRequest.ReminderId).Scan(&reminderUserId)
+	err = tx.QueryRow("SELECT user_id FROM reminder WHERE id=:1", reminderId).Scan(&reminderUserId)
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for reminder id %v: %v", reminderRequest.ReminderId, err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for reminder id %v: %v", reminderId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
 
 	if reminderUserId != userId {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's reminder", reminderRequest.ReminderId, userId))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's reminder", reminderId, userId))
 		tx.Rollback()
 		return
 	}
 
-	_, err = tx.Exec("UPDATE reminder SET body = :1, updated_at = :2 WHERE id = :3", reminderRequest.Body, time.Now(), reminderRequest.ReminderId)
+	_, err = tx.Exec("UPDATE reminder SET body = :1, updated_at = :2 WHERE id = :3", reminderRequest.Body, time.Now(), reminderId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to update reminder: %v", err))
 		log.Println(errors.New(err).ErrorStack())

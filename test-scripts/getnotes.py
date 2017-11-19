@@ -9,7 +9,7 @@ if len(sys.argv) != 3:
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1], 'Password': sys.argv[2]}
-req = requests.put('https://productive.ahouts.com/note/get', 
+req = requests.put('https://productive.ahouts.com/note', 
                    headers={'Content-Type': 'application/json'}, 
                    data=json.dumps(dat).encode())
 print(req.text)

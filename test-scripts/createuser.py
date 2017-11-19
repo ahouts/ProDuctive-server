@@ -5,7 +5,7 @@ import json
 import sys
 
 if len(sys.argv) != 3:
-    print("format: ./insertuser.py username password")
+    print("format: ./createuser.py username password")
     sys.exit(-1)
 
 dat = { 'Email': sys.argv[1], 'Password': sys.argv[2]}
