@@ -10,8 +10,6 @@ import (
 
 	"strconv"
 
-	"strings"
-
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
 )
@@ -63,25 +61,9 @@ func (s *DbSession) GetNotes(request *restful.Request, response *restful.Respons
 		return
 	}
 
-	noteIds, err := getNotesForUser(tx, userId)
-	if err != nil {
-		tx.Rollback()
-		response.WriteErrorString(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	noteIdStrs := make([]string, 0, len(noteIds))
-	for _, noteId := range noteIds {
-		noteIdStrs = append(noteIdStrs, strconv.Itoa(noteId))
-	}
-
-	noteIdStr := "("
-	noteIdStr += strings.Join(noteIdStrs, ", ")
-	noteIdStr += ")"
-
 	noteMetadata := make([]NoteMetadata, 0)
 
-	rows, err := tx.Query(fmt.Sprintf("SELECT id, title, owner_id, project_id FROM note WHERE id IN %v", noteIdStr))
+	rows, err := tx.Query("SELECT id, title, owner_id, project_id FROM note WHERE id in (select * from table(get_notes_for_user(:1)))", userId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find notes for user: %v.", err))
@@ -149,21 +131,15 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 		return
 	}
 
-	noteUsers, err := getUsersForNote(tx, noteId)
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	found := false
-	for _, usr := range noteUsers {
-		if usr == userId {
-			found = true
-		}
-	}
-
-	if !found {
+	if hasPermission == 0 {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to view note %v", noteId))
 		tx.Rollback()
 		return
@@ -241,79 +217,4 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 		tx.Rollback()
 		return
 	}
-}
-
-func getUsersForNote(tx *sql.Tx, noteId int) ([]int, error) {
-	users := make([]int, 0)
-	var ownerId int
-	err := tx.QueryRow("SELECT owner_id FROM note WHERE id = :1", noteId).Scan(&ownerId)
-	if err != nil {
-		log.Printf("failed to get owner for note %v: %v\n", noteId, errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("failed to get owner for note %v: %v", noteId, err)
-	}
-	users = append(users, ownerId)
-	rows, err := tx.Query("SELECT user_id FROM note_user WHERE note_id = :1", noteId)
-	if err != nil {
-		log.Printf("failed to get users for note %v: %v\n", noteId, errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("failed to get users for note %v: %v", noteId, err)
-	}
-	for rows.Next() {
-		var userId int
-		err = rows.Scan(&userId)
-		if err != nil {
-			log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-			return nil, fmt.Errorf("error while loading row from database, check logs")
-		}
-		users = append(users, userId)
-	}
-	if err = rows.Err(); err != nil {
-		log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("error while loading row from database: %v", err)
-	}
-	rows.Close()
-	return users, nil
-}
-
-func getNotesForUser(tx *sql.Tx, userId int) ([]int, error) {
-	notes := make([]int, 0)
-	rows, err := tx.Query("SELECT id FROM note WHERE owner_id = :1", userId)
-	if err != nil {
-		log.Printf("failed to get notes for user %v: %v\n", userId, errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("failed to get notes for user %v: %v", userId, err)
-	}
-	for rows.Next() {
-		var noteId int
-		err = rows.Scan(&noteId)
-		if err != nil {
-			log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-			return nil, fmt.Errorf("error while loading row from database, check logs")
-		}
-		notes = append(notes, noteId)
-	}
-	if err = rows.Err(); err != nil {
-		log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("error while loading row from database: %v", err)
-	}
-	rows.Close()
-
-	rows, err = tx.Query("SELECT note_id FROM note_user WHERE user_id = :1", userId)
-	if err != nil {
-		log.Printf("failed to get notes for user %v: %v\n", userId, errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("failed to get notes for user %v: %v", userId, err)
-	}
-	for rows.Next() {
-		var noteId int
-		err = rows.Scan(&noteId)
-		if err != nil {
-			log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-			return nil, fmt.Errorf("error while loading row from database, check logs")
-		}
-		notes = append(notes, noteId)
-	}
-	if err = rows.Err(); err != nil {
-		log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
-		return nil, fmt.Errorf("error while loading row from database: %v", err)
-	}
-	rows.Close()
-	return notes, nil
 }

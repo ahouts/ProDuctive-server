@@ -1,0 +1,1 @@
+DROP FUNCTION get_users_for_note

@@ -1,0 +1,1 @@
+DROP FUNCTION user_has_permission_for_note

@@ -1,0 +1,1 @@
+drop function get_notes_for_user
