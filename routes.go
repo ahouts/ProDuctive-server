@@ -10,6 +10,7 @@ func setupRoutes(s *data.DbSession) {
 	restful.Add(userWs(s))
 	restful.Add(remindersWs(s))
 	restful.Add(noteWs(s))
+	restful.Add(projectWs(s))
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(),
 		ApiPath:         "/apidocs.json",
@@ -110,6 +111,52 @@ func noteWs(s *data.DbSession) *restful.WebService {
 		Doc("delete a note").
 		Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
 		Reads(new(data.DeleteNoteRequest)))
+
+	ws.Filter(enableCORS)
+	return ws
+}
+
+func projectWs(s *data.DbSession) *restful.WebService {
+	ws := new(restful.WebService)
+	ws.Path("/project").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
+
+	//ws.Route(ws.PUT("/").To(s.GetProjects).
+	//	Doc("get a user's projects").
+	//	Reads(data.GetProjectRequest{}).
+	//	Writes(new([]data.ProjectMetadata)))
+	//
+	//ws.Route(ws.PUT("/{project-id}").To(s.GetProject).
+	//	Doc("get a user's project").
+	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+	//	Reads(data.GetProjectRequest{}).
+	//	Writes(new(data.Project)))
+	//
+	//ws.Route(ws.PUT("/{project-id}/get_notes").To(s.GetNotesForProject).
+	//	Doc("get notes for a project").
+	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+	//	Reads(data.GetNotesForProjectRequest{}).
+	//	Writes(new([]data.NoteMetadata)))
+	//
+	//ws.Route(ws.POST("/{project-id}/add_user").To(s.AddUserToProject).
+	//	Doc("add a user to a project").
+	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+	//	Reads(data.AddUserToProjectRequest{}))
+	//
+	//ws.Route(ws.POST("/").To(s.CreateProject).
+	//	Doc("create a project").
+	//	Reads(new(data.CreateProjectRequest)))
+	//
+	//ws.Route(ws.POST("/{project-id}").To(s.UpdateNote).
+	//	Doc("update a project").
+	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+	//	Reads(new(data.UpdateProjectRequest)))
+	//
+	//ws.Route(ws.PUT("/delete/{project-id}").To(s.DeleteProject).
+	//	Doc("delete a project").
+	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+	//	Reads(new(data.DeleteProjectRequest)))
 
 	ws.Filter(enableCORS)
 	return ws
