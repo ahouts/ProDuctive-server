@@ -30,7 +30,7 @@ func (s *DbSession) GetReminders(request *restful.Request, response *restful.Res
 	err := request.ReadEntity(&reminderRequest)
 
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(GetReminderRequest), response)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (s *DbSession) GetReminder(request *restful.Request, response *restful.Resp
 	reminderRequest := GetReminderRequest{}
 	err = request.ReadEntity(&reminderRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(GetReminderRequest), response)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (s *DbSession) CreateReminder(request *restful.Request, response *restful.R
 	reminderRequest := CreateReminderRequest{}
 	err := request.ReadEntity(&reminderRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(CreateReminderRequest), response)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 	reminderRequest := UpdateReminderRequest{}
 	err = request.ReadEntity(&reminderRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(UpdateReminderRequest), response)
 		return
 	}
 
@@ -262,10 +262,10 @@ func (s *DbSession) DeleteReminder(request *restful.Request, response *restful.R
 		return
 	}
 
-	reminderRequest := GetReminderRequest{}
+	reminderRequest := DeleteReminderRequest{}
 	err = request.ReadEntity(&reminderRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(DeleteReminderRequest), response)
 		return
 	}
 

@@ -92,19 +92,19 @@ func noteWs(s *data.DbSession) *restful.WebService {
 		Reads(data.GetNoteRequest{}).
 		Writes(new(data.Note)))
 
-	//ws.Route(ws.POST("/{note-id}/add_user").To(s.AddUserToNote).
-	//	Doc("add a user to a note").
-	//	Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
-	//	Reads(data.AddUserToNoteRequest{}))
-	//
+	ws.Route(ws.POST("/{note-id}/add_user").To(s.AddUserToNote).
+		Doc("add a user to a note").
+		Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
+		Reads(data.AddUserToNoteRequest{}))
+
 	ws.Route(ws.POST("/").To(s.CreateNote).
 		Doc("create a note").
 		Reads(new(data.CreateNoteRequest)))
 
-	//ws.Route(ws.POST("/{note-id}").To(s.UpdateNote).
-	//	Doc("update a note").
-	//  Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
-	//	Reads(new(data.UpdateNoteRequest)))
+	ws.Route(ws.POST("/{note-id}").To(s.UpdateNote).
+		Doc("update a note").
+		Param(ws.PathParameter("note-id", "id of the note").DataType("string")).
+		Reads(new(data.UpdateNoteRequest)))
 
 	ws.Route(ws.PUT("/delete/{note-id}").To(s.DeleteNote).
 		Doc("delete a note").

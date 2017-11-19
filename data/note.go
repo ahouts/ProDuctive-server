@@ -41,8 +41,7 @@ func (s *DbSession) GetNotes(request *restful.Request, response *restful.Respons
 	err := request.ReadEntity(&noteRequest)
 
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", noteRequest))
-		log.Println(errors.New(err).ErrorStack())
+		formatError(new(GetNoteRequest), response)
 		return
 	}
 
@@ -110,7 +109,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	noteRequest := GetNoteRequest{}
 	err = request.ReadEntity(&noteRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", noteRequest))
+		formatError(new(GetNoteRequest), response)
 		return
 	}
 
@@ -164,18 +163,18 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 }
 
 type CreateNoteRequest struct {
-	Email     string `json:"Email"`
-	Password  string `json:"Password"`
-	Title     string `json:"Title"`
-	Body      string `json:"Body"`
-	ProjectId int    `json:"ProjectId"`
+	Email     string        `json:"Email"`
+	Password  string        `json:"Password"`
+	Title     string        `json:"Title"`
+	Body      string        `json:"Body"`
+	ProjectId sql.NullInt64 `json:"ProjectId"`
 }
 
 func (s *DbSession) CreateNote(request *restful.Request, response *restful.Response) {
 	reminderRequest := CreateNoteRequest{}
 	err := request.ReadEntity(&reminderRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		formatError(new(CreateNoteRequest), response)
 		return
 	}
 
@@ -193,14 +192,8 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	if reminderRequest.ProjectId == 0 {
-		_, err = tx.Exec("INSERT INTO note VALUES(null, :1, :2, :3, :4, default, default)",
-			reminderRequest.Title, reminderRequest.Body, userId, nil)
-	} else {
-		_, err = tx.Exec("INSERT INTO note VALUES(null, :1, :2, :3, :4, default, default)",
-			reminderRequest.Title, reminderRequest.Body, userId, reminderRequest.ProjectId)
-	}
-
+	_, err = tx.Exec("INSERT INTO note VALUES(null, :1, :2, :3, :4, default, default)",
+		reminderRequest.Title, reminderRequest.Body, userId, reminderRequest.ProjectId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to create user: %v", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -233,7 +226,7 @@ func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Respo
 	noteRequest := DeleteNoteRequest{}
 	err = request.ReadEntity(&noteRequest)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", noteRequest))
+		formatError(new(DeleteNoteRequest), response)
 		return
 	}
 
@@ -284,60 +277,138 @@ func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Respo
 }
 
 type UpdateNoteRequest struct {
-	Email    string
-	Password string
+	Email     string
+	Password  string
+	Title     string
+	Body      string
+	OwnerId   int
+	ProjectId sql.NullInt64
 }
 
-//func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Response) {
-//	reminderRequest := UpdateReminderRequest{}
-//	err := request.ReadEntity(&reminderRequest)
-//	if err != nil {
-//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
-//		return
-//	}
-//
-//	tx, err := s.InitTransaction()
-//	if err != nil {
-//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context.\n%v.", err))
-//		log.Println(errors.New(err).ErrorStack())
-//		return
-//	}
-//
-//	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
-//	if err != nil {
-//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
-//		tx.Rollback()
-//		return
-//	}
-//
-//	var reminderUserId int
-//	err = tx.QueryRow("SELECT user_id FROM reminder WHERE id=:1", reminderRequest.ReminderId).Scan(&reminderUserId)
-//	if err != nil {
-//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for reminder id %v: %v", reminderRequest.ReminderId, err))
-//		log.Println(errors.New(err).ErrorStack())
-//		tx.Rollback()
-//		return
-//	}
-//
-//	if reminderUserId != userId {
-//		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's reminder", reminderRequest.ReminderId, userId))
-//		tx.Rollback()
-//		return
-//	}
-//
-//	_, err = tx.Exec("UPDATE reminder SET body = :1, updated_at = :2 WHERE id = :3", reminderRequest.Body, time.Now(), reminderRequest.ReminderId)
-//	if err != nil {
-//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to update reminder: %v", err))
-//		log.Println(errors.New(err).ErrorStack())
-//		tx.Rollback()
-//		return
-//	}
-//
-//	err = tx.Commit()
-//	if err != nil {
-//		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
-//		tx.Rollback()
-//		log.Println(errors.New(err).ErrorStack())
-//		return
-//	}
-//}
+func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("note-id")
+	noteId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, note id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	noteRequest := UpdateNoteRequest{}
+	err = request.ReadEntity(&noteRequest)
+	if err != nil {
+		formatError(new(UpdateNoteRequest), response)
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context.\n%v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, noteRequest.Email, noteRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to delete note %v", noteId))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("UPDATE note SET title = :1, body = :2, owner_id = :3, project_id = :4 WHERE id = :5", noteRequest.Title, noteRequest.Body, noteRequest.OwnerId, noteRequest.ProjectId, noteId)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete note: %v", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+}
+
+type AddUserToNoteRequest struct {
+	Email     string
+	Password  string
+	NewUserId int
+}
+
+func (s *DbSession) AddUserToNote(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("note-id")
+	noteId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, note id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	noteRequest := AddUserToNoteRequest{}
+	err = request.ReadEntity(&noteRequest)
+	if err != nil {
+		formatError(new(AddUserToNoteRequest), response)
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context.\n%v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, noteRequest.Email, noteRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to add user to note %v", noteId))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("INSERT INTO note_user VALUES(:1, :2, 1)", noteRequest.NewUserId, noteId)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to add user to note: %v", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+}
