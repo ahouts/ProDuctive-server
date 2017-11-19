@@ -8,10 +8,11 @@ import (
 
 	"strconv"
 
+	"database/sql"
+
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
 	"golang.org/x/crypto/bcrypt"
-	"database/sql"
 )
 
 type User struct {

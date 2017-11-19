@@ -162,7 +162,7 @@ func (s *DbSession) CreateReminder(request *restful.Request, response *restful.R
 		return
 	}
 
-	id, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -170,9 +170,9 @@ func (s *DbSession) CreateReminder(request *restful.Request, response *restful.R
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO reminder VALUES(null, :1, :2, default, default)", id, reminderRequest.Body)
+	_, err = tx.Exec("INSERT INTO reminder VALUES(null, :1, :2, default, default)", userId, reminderRequest.Body)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed insert reminder: %v", err))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to create reminder: %v", err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -209,7 +209,7 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 		return
 	}
 
-	id, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -226,8 +226,8 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 		return
 	}
 
-	if reminderUserId != id {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's id", reminderRequest.ReminderId, id))
+	if reminderUserId != userId {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("reminder %v is not user %v's id", reminderRequest.ReminderId, userId))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -236,6 +236,75 @@ func (s *DbSession) UpdateReminder(request *restful.Request, response *restful.R
 	_, err = tx.Exec("UPDATE reminder SET body = :1, updated_at = :2 WHERE id = :3", reminderRequest.Body, time.Now(), reminderRequest.ReminderId)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to update reminder: %v", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		return
+	}
+}
+
+type DeleteReminderRequest struct {
+	Email    string `json:"Email"`
+	Password string `json:"Password"`
+}
+
+func (s *DbSession) DeleteReminder(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("reminder-id")
+	reminderId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, reminder id %v is invalid.\n%v", idStr, err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	reminderRequest := GetReminderRequest{}
+	err = request.ReadEntity(&reminderRequest)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	res := Reminder{}
+	err = tx.QueryRow("SELECT id, user_id, body, created_at, updated_at FROM reminder WHERE user_id = :1 AND id = :2", userId, reminderId).
+		Scan(&res.Id, &res.UserId, &res.Body, &res.CreatedAt, &res.UpdatedAt)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for reminder %v: %v", reminderId, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	if res.UserId != userId {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user %v doesn't have permission to delete reminder %v: %v", userId, reminderId, err))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM reminder WHERE id = :1", reminderId)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to delete reminder %v: %v", reminderId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
