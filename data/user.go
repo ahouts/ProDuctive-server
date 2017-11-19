@@ -39,25 +39,31 @@ func (s *DbSession) GetUser(request *restful.Request, response *restful.Response
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
-		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 	tx, err := s.InitTransaction()
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Failed to initialize a transaction.\n%v", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Failed to initialize a transaction.\n%v", err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 	var u User
 	err = tx.QueryRow("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = :1", id).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", idStr, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
+	u.PasswordHash = "redacted"
 	response.WriteEntity(u)
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
 }
 
 type CreateUserRequest struct {
@@ -85,31 +91,34 @@ func (s *DbSession) CreateUser(request *restful.Request, response *restful.Respo
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcryptCost)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, failed to hash password %v.", userRequest.Password))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, failed to hash password."))
 		return
 	}
 
 	tx, err := s.InitTransaction()
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to initialize a transaction: %v", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize a transaction: %v", err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 	insertUser, err := tx.Prepare("INSERT INTO user_profile VALUES(NULL, :1, utl_raw.cast_to_raw(:2), default, default)")
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to prepare insert command for %v: %v", userRequest.Email, err))
+		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
 	_, err = insertUser.Exec(userRequest.Email, string(hashedPassword))
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to insert user %v: %v", userRequest.Email, err))
+		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
 	err = tx.Commit()
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
@@ -147,7 +156,7 @@ func (s *DbSession) GetUserId(request *restful.Request, response *restful.Respon
 
 	tx, err := s.InitTransaction()
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to initialize a transaction: %v", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize a transaction: %v", err))
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}

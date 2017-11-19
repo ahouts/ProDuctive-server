@@ -104,7 +104,6 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	noteId, err := strconv.Atoi(idStr)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, note id %v is invalid.\n%v", idStr, err))
-		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
@@ -112,7 +111,6 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	err = request.ReadEntity(&noteRequest)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", noteRequest))
-		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
@@ -126,7 +124,6 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	userId, err := AuthUser(tx, noteRequest.Email, noteRequest.Password)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
-		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
@@ -136,6 +133,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
@@ -149,7 +147,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	err = tx.QueryRow("SELECT id, title, body, owner_id, project_id, created_at, updated_at FROM note WHERE id = :1", noteId).
 		Scan(&res.Id, &res.Title, &res.Body, &res.OwnerId, &res.ProjectId, &res.CreatedAt, &res.UpdatedAt)
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to query db for note %v: %v", noteId, err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for note %v: %v", noteId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -159,6 +157,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
 		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 	response.WriteEntity(res)
@@ -177,7 +176,6 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 	err := request.ReadEntity(&reminderRequest)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("request invalid, must match format: %v", reminderRequest))
-		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 
@@ -191,7 +189,6 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
-		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
 	}
@@ -205,7 +202,7 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 	}
 
 	if err != nil {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to create user: %v", err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to create user: %v", err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return
@@ -215,6 +212,7 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
 		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
 		return
 	}
 }

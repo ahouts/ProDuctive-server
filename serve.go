@@ -53,7 +53,7 @@ func dropDb(cfgFile string) {
 	migrations.Down(s)
 }
 
-func initDb(cfgFile string) (*data.DbSession) {
+func initDb(cfgFile string) *data.DbSession {
 	cfg := getCfg(cfgFile)
 
 	// this function returns a channel that returns a value once its done
