@@ -171,8 +171,8 @@ type CreateNoteRequest struct {
 }
 
 func (s *DbSession) CreateNote(request *restful.Request, response *restful.Response) {
-	reminderRequest := CreateNoteRequest{}
-	err := request.ReadEntity(&reminderRequest)
+	noteRequest := CreateNoteRequest{}
+	err := request.ReadEntity(&noteRequest)
 	if err != nil {
 		formatError(new(CreateNoteRequest), response)
 		return
@@ -185,7 +185,7 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	userId, err := AuthUser(tx, reminderRequest.Email, reminderRequest.Password)
+	userId, err := AuthUser(tx, noteRequest.Email, noteRequest.Password)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
 		tx.Rollback()
@@ -193,7 +193,7 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 	}
 
 	_, err = tx.Exec("INSERT INTO note VALUES(null, :1, :2, :3, :4, default, default)",
-		reminderRequest.Title, reminderRequest.Body, userId, reminderRequest.ProjectId)
+		noteRequest.Title, noteRequest.Body, userId, noteRequest.ProjectId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to create user: %v", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -324,7 +324,7 @@ func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Respo
 	}
 
 	if hasPermission == 0 {
-		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to delete note %v", noteId))
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to update note %v", noteId))
 		tx.Rollback()
 		return
 	}

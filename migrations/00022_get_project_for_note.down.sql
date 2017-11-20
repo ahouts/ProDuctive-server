@@ -1,0 +1,1 @@
+drop function get_project_for_note

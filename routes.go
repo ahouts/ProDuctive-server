@@ -122,10 +122,10 @@ func projectWs(s *data.DbSession) *restful.WebService {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	//ws.Route(ws.PUT("/").To(s.GetProjects).
-	//	Doc("get a user's projects").
-	//	Reads(data.GetProjectRequest{}).
-	//	Writes(new([]data.ProjectMetadata)))
+	ws.Route(ws.PUT("/").To(s.GetProjects).
+		Doc("get a user's projects").
+		Reads(data.GetProjectRequest{}).
+		Writes(new([]data.ProjectMetadata)))
 	//
 	//ws.Route(ws.PUT("/{project-id}").To(s.GetProject).
 	//	Doc("get a user's project").
@@ -144,9 +144,9 @@ func projectWs(s *data.DbSession) *restful.WebService {
 	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
 	//	Reads(data.AddUserToProjectRequest{}))
 	//
-	//ws.Route(ws.POST("/").To(s.CreateProject).
-	//	Doc("create a project").
-	//	Reads(new(data.CreateProjectRequest)))
+	ws.Route(ws.POST("/").To(s.CreateProject).
+		Doc("create a project").
+		Reads(new(data.CreateProjectRequest)))
 	//
 	//ws.Route(ws.POST("/{project-id}").To(s.UpdateNote).
 	//	Doc("update a project").
