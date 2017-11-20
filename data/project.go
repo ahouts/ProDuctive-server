@@ -6,15 +6,18 @@ import (
 	"net/http"
 	"time"
 
+	"strconv"
+
 	"github.com/emicklei/go-restful"
 	"github.com/go-errors/errors"
 )
 
 type Project struct {
 	Id        int
-	title     string
+	Title     string
 	OwnerId   int
 	UserIds   []int
+	NoteIds   []int
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -134,4 +137,122 @@ func (s *DbSession) CreateProject(request *restful.Request, response *restful.Re
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
+}
+
+func (s *DbSession) GetProject(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("project-id")
+	projectId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, project id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	projectRequest := GetProjectRequest{}
+	err = request.ReadEntity(&projectRequest)
+	if err != nil {
+		formatError(new(GetProjectRequest), response)
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, projectRequest.Email, projectRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to view project %v", projectId))
+		tx.Rollback()
+		return
+	}
+
+	res := Project{}
+	res.NoteIds = make([]int, 0)
+	res.UserIds = make([]int, 0)
+	err = tx.QueryRow("SELECT id, title, owner_id, created_at, updated_at FROM project WHERE id = :1", projectId).
+		Scan(&res.Id, &res.Title, &res.OwnerId, &res.CreatedAt, &res.UpdatedAt)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for project %v: %v", projectId, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	rows, err := tx.Query("select * from table(get_users_for_project(:1))", projectId)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find users for project: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+	for rows.Next() {
+		var uid int
+		err = rows.Scan(&uid)
+		if err != nil {
+			response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("error while loading row from database, check logs"))
+			log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
+			tx.Rollback()
+			return
+		}
+		res.UserIds = append(res.UserIds, uid)
+	}
+	if err = rows.Err(); err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("error while loading row from database, check logs"))
+		log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+	rows.Close()
+
+	rows, err = tx.Query("select * from table(get_notes_for_project(:1))", projectId)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find notes for project: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+	for rows.Next() {
+		var nid int
+		err = rows.Scan(&nid)
+		if err != nil {
+			response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("error while loading row from database, check logs"))
+			log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
+			tx.Rollback()
+			return
+		}
+		res.NoteIds = append(res.NoteIds, nid)
+	}
+	if err = rows.Err(); err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("error while loading row from database, check logs"))
+		log.Printf("error while loading row from database: %v\n", errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+	rows.Close()
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+	response.WriteEntity(res)
 }

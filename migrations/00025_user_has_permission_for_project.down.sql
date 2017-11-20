@@ -1,0 +1,1 @@
+drop function permission_for_project
