@@ -1,6 +1,5 @@
 # ProDuctive Server
 ## Install
-choose a directory to install
 install oracle OCI-8 BS, you will have to figure that one out
 
 get and build the program
@@ -9,6 +8,8 @@ go get github.com/ahouts/ProDuctive-server
 cd $GOPATH/src/github.com/ahouts/ProDuctive-server
 go build .
 ```
+choose a directory to serve from
+
 move swagger-dist, ProDuctive-server, and config-example.json binary to that directory
 ```bash
 cp -r ./swagger-dist ./ProDuctive-server <install dir>
