@@ -1,4 +1,4 @@
-# ProDuctive Serevr
+# ProDuctive Server
 ## Install
 choose a directory to install
 install oracle OCI-8 BS, you will have to figure that one out
