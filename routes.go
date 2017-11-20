@@ -133,11 +133,11 @@ func projectWs(s *data.DbSession) *restful.WebService {
 		Reads(data.GetProjectRequest{}).
 		Writes(new(data.Project)))
 
-	//ws.Route(ws.POST("/{project-id}/add_user").To(s.AddUserToProject).
-	//	Doc("add a user to a project").
-	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
-	//	Reads(data.AddUserToProjectRequest{}))
-	//
+	ws.Route(ws.POST("/{project-id}/add_user").To(s.AddUserToProject).
+		Doc("add a user to a project").
+		Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+		Reads(data.AddUserToProjectRequest{}))
+
 	ws.Route(ws.POST("/").To(s.CreateProject).
 		Doc("create a project").
 		Reads(new(data.CreateProjectRequest)))
@@ -146,11 +146,11 @@ func projectWs(s *data.DbSession) *restful.WebService {
 	//	Doc("update a project").
 	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
 	//	Reads(new(data.UpdateProjectRequest)))
-	//
-	//ws.Route(ws.PUT("/delete/{project-id}").To(s.DeleteProject).
-	//	Doc("delete a project").
-	//	Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
-	//	Reads(new(data.DeleteProjectRequest)))
+
+	ws.Route(ws.PUT("/delete/{project-id}").To(s.DeleteProject).
+		Doc("delete a project").
+		Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+		Reads(new(data.DeleteProjectRequest)))
 
 	ws.Filter(enableCORS)
 	return ws

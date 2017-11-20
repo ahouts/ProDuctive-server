@@ -261,7 +261,7 @@ func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Respo
 
 	_, err = tx.Exec("DELETE FROM note WHERE id = :1", noteId)
 	if err != nil {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete reminder %v: %v", noteId, err))
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete note %v: %v", noteId, err))
 		log.Println(errors.New(err).ErrorStack())
 		tx.Rollback()
 		return

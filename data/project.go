@@ -256,3 +256,136 @@ func (s *DbSession) GetProject(request *restful.Request, response *restful.Respo
 	}
 	response.WriteEntity(res)
 }
+
+type AddUserToProjectRequest struct {
+	Email     string
+	Password  string
+	NewUserId int
+}
+
+func (s *DbSession) AddUserToProject(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("project-id")
+	projectId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, project id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	projectRequest := AddUserToProjectRequest{}
+	err = request.ReadEntity(&projectRequest)
+	if err != nil {
+		formatError(new(AddUserToProjectRequest), response)
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context.\n%v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, projectRequest.Email, projectRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to add user to project %v", projectId))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("INSERT INTO project_user VALUES(:1, :2, 1)", projectRequest.NewUserId, projectId)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to add user to project: %v", err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+}
+
+type DeleteProjectRequest struct {
+	Email    string
+	Password string
+}
+
+func (s *DbSession) DeleteProject(request *restful.Request, response *restful.Response) {
+	idStr := request.PathParameter("project-id")
+	projectId, err := strconv.Atoi(idStr)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("Invalid query, project id %v is invalid.\n%v", idStr, err))
+		return
+	}
+
+	projectRequest := DeleteProjectRequest{}
+	err = request.ReadEntity(&projectRequest)
+	if err != nil {
+		formatError(new(DeleteProjectRequest), response)
+		return
+	}
+
+	tx, err := s.InitTransaction()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to initialize database context: %v.", err))
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	userId, err := AuthUser(tx, projectRequest.Email, projectRequest.Password)
+	if err != nil {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to authenticate request: %v.", err))
+		tx.Rollback()
+		return
+	}
+
+	var hasPermission int
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	if err != nil {
+		tx.Rollback()
+		response.WriteErrorString(http.StatusInternalServerError, err.Error())
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+
+	if hasPermission == 0 {
+		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("user does not have permission to view project %v", projectId))
+		tx.Rollback()
+		return
+	}
+
+	_, err = tx.Exec("DELETE FROM project WHERE id = :1", projectId)
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete project %v: %v", projectId, err))
+		log.Println(errors.New(err).ErrorStack())
+		tx.Rollback()
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to commit change: %v", err))
+		tx.Rollback()
+		log.Println(errors.New(err).ErrorStack())
+		return
+	}
+}
