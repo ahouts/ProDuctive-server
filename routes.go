@@ -133,6 +133,12 @@ func projectWs(s *data.DbSession) *restful.WebService {
 		Reads(data.GetProjectRequest{}).
 		Writes(new(data.Project)))
 
+	ws.Route(ws.PUT("/{project-id}/notes").To(s.GetNotesForProject).
+		Doc("get notes for a project").
+		Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
+		Reads(data.GetProjectRequest{}).
+		Writes(new([]data.NoteMetadata)))
+
 	ws.Route(ws.POST("/{project-id}/add_user").To(s.AddUserToProject).
 		Doc("add a user to a project").
 		Param(ws.PathParameter("project-id", "id of the project").DataType("string")).
