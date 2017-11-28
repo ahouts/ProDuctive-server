@@ -11,6 +11,7 @@ func setupRoutes(s *data.DbSession) {
 	restful.Add(remindersWs(s))
 	restful.Add(noteWs(s))
 	restful.Add(projectWs(s))
+	restful.Add(statsWs(s))
 	config := swagger.Config{
 		WebServices:     restful.RegisteredWebServices(),
 		ApiPath:         "/apidocs.json",
@@ -38,6 +39,20 @@ func userWs(s *data.DbSession) *restful.WebService {
 	ws.Route(ws.POST("/").To(s.CreateUser).
 		Doc("create a user").
 		Reads(new(data.CreateUserRequest)))
+
+	ws.Filter(enableCORS)
+	return ws
+}
+
+func statsWs(s *data.DbSession) *restful.WebService {
+	ws := new(restful.WebService)
+	ws.Path("/stats").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
+
+	ws.Route(ws.PUT("/").To(s.GetStats).
+		Doc("get stats").
+		Writes(new(data.Stats)))
 
 	ws.Filter(enableCORS)
 	return ws
