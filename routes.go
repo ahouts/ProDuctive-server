@@ -50,9 +50,9 @@ func statsWs(s *data.DbSession) *restful.WebService {
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.PUT("/").To(s.GetStats).
+	ws.Route(ws.GET("/").To(s.GetStats).
 		Doc("get stats").
-		Writes(new(data.Stats)))
+		Writes(data.Stats{}))
 
 	ws.Filter(enableCORS)
 	return ws

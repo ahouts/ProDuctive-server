@@ -10,7 +10,7 @@ import (
 )
 
 type Stats struct {
-	text string
+	Text string
 }
 
 func (s *DbSession) GetStats(request *restful.Request, response *restful.Response) {
@@ -22,7 +22,7 @@ func (s *DbSession) GetStats(request *restful.Request, response *restful.Respons
 	}
 
 	res := Stats{}
-	err = tx.QueryRow("SELECT getAvgNotePerProject from dual").Scan(&res.text)
+	err = tx.QueryRow("SELECT getAvgNotePerProject from dual").Scan(&res.Text)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for stats: %v", err))
 		log.Println(errors.New(err).ErrorStack())
