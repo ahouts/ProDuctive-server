@@ -58,7 +58,7 @@ func (s *DbSession) GetUser(request *restful.Request, response *restful.Response
 	}
 
 	var u User
-	err = tx.QueryRow("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = :1", userId).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	err = tx.QueryRow("SELECT id, email, password_hash, created_at, updated_at FROM user_profile WHERE id = ?", userId).Scan(&u.Id, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Invalid query, user id %v is invalid.\n%v", userId, err))
 		log.Println(errors.New(err).ErrorStack())
@@ -111,7 +111,7 @@ func (s *DbSession) CreateUser(request *restful.Request, response *restful.Respo
 		log.Println(errors.New(err).ErrorStack())
 		return
 	}
-	insertUser, err := tx.Prepare("INSERT INTO user_profile VALUES(NULL, :1, utl_raw.cast_to_raw(:2), default, default)")
+	insertUser, err := tx.Prepare("INSERT INTO user_profile VALUES(NULL, ?, utl_raw.cast_to_raw(?), default, default)")
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to prepare insert command for %v: %v", userRequest.Email, err))
 		log.Println(errors.New(err).ErrorStack())
@@ -171,7 +171,7 @@ func (s *DbSession) GetUserId(request *restful.Request, response *restful.Respon
 		return
 	}
 	uid := UserId{}
-	err = tx.QueryRow("SELECT id FROM user_profile WHERE email = :1", userIdReq.Email).Scan(&uid.Id)
+	err = tx.QueryRow("SELECT id FROM user_profile WHERE email = ?", userIdReq.Email).Scan(&uid.Id)
 	if err != nil {
 		response.WriteErrorString(http.StatusBadRequest, fmt.Sprintf("failed to find user with email %v: %v", userIdReq.Email, err))
 		log.Println(errors.New(err).ErrorStack())

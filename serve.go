@@ -5,37 +5,30 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
 
-	_ "github.com/mattn/go-oci8"
-
 	"fmt"
+
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/ahouts/ProDuctive-server/data"
 	"github.com/ahouts/ProDuctive-server/migrations"
-	"github.com/ahouts/ProDuctive-server/tunnel"
 	"github.com/go-errors/errors"
-	"golang.org/x/crypto/ssh"
 )
 
-type loginInfo struct {
-	Hostname string
+type dbConfig struct {
 	Username string
 	Password string
+	Hostname string
+	Port     uint
+	Name     string
 }
 
 type configuration struct {
-	Ssh    loginInfo
-	Db     loginInfo
-	DbName string
+	DB dbConfig
 }
-
-const localPort = 40841
-const oraclePort = 1521
-const sshPort = 22
 
 func serve(cfgFile string, port int) {
 	s := initDb(cfgFile)
@@ -56,49 +49,10 @@ func dropDb(cfgFile string) {
 func initDb(cfgFile string) *data.DbSession {
 	cfg := getCfg(cfgFile)
 
-	// this function returns a channel that returns a value once its done
-	// by pulling a value out of the channel, we block until the tunnel is ready
-	<-cfg.createTunnel()
-
 	db := cfgDb(cfg)
 
 	s := &data.DbSession{DB: db}
 	return s
-}
-
-func (cfg *configuration) createTunnel() chan (bool) {
-	localEndpoint := &tunnel.Endpoint{
-		Host: "localhost",
-		Port: localPort,
-	}
-
-	serverEndpoint := &tunnel.Endpoint{
-		Host: cfg.Ssh.Hostname,
-		Port: sshPort,
-	}
-
-	remoteEndpoint := &tunnel.Endpoint{
-		Host: cfg.Db.Hostname,
-		Port: oraclePort,
-	}
-
-	tun := &tunnel.SSHTunnel{
-		Config: &ssh.ClientConfig{
-			User: cfg.Ssh.Username,
-			Auth: []ssh.AuthMethod{
-				ssh.Password(cfg.Ssh.Password),
-			},
-			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-				return nil
-			},
-		},
-		Local:  localEndpoint,
-		Server: serverEndpoint,
-		Remote: remoteEndpoint,
-	}
-	ready := make(chan bool)
-	go tun.Start(ready)
-	return ready
 }
 
 func getCfg(cfgFile string) configuration {
@@ -117,8 +71,8 @@ func getCfg(cfgFile string) configuration {
 }
 
 func cfgDb(cfg configuration) *sql.DB {
-	dbConn := cfg.Db.Username + `/` + cfg.Db.Password + `@localhost:` + strconv.Itoa(localPort) + "/" + cfg.DbName
-	db, err := sql.Open("oci8", dbConn)
+	dbConn := cfg.DB.Username + `/` + cfg.DB.Password + `@ ` + cfg.DB.Hostname + `:` + strconv.FormatInt(int64(cfg.DB.Port), 10) + "/" + cfg.DB.Name
+	db, err := sql.Open("mysql", dbConn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database...\n%v", errors.New(err).ErrorStack())
 	}

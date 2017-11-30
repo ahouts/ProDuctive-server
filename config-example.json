@@ -1,13 +1,9 @@
 {
-  "Ssh": {
-    "Hostname": "linux.dc.engr.scu.edu",
-    "Username": "ahouts",
-    "Password": "nah"
-  },
-  "Db": {
-    "Hostname": "dagobah",
-    "Username": "ahouts",
-    "Password": "nah"
-  },
-  "DbName": "db11g"
+  "DB": {
+    "Username": "productive",
+    "Password": "nope",
+    "Hostname": "localhost",
+    "Port": 3306,
+    "Name": "productive"
+  }
 }

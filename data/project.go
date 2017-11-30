@@ -58,7 +58,7 @@ func (s *DbSession) GetProjects(request *restful.Request, response *restful.Resp
 
 	projectMetadata := make([]ProjectMetadata, 0)
 
-	rows, err := tx.Query("SELECT id, title FROM project WHERE id in (select * from table(get_projects_for_user(:1)))", userId)
+	rows, err := tx.Query("SELECT id, title FROM project WHERE id in (select * from table(get_projects_for_user(?)))", userId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find projects for user: %v.", err))
@@ -122,7 +122,7 @@ func (s *DbSession) CreateProject(request *restful.Request, response *restful.Re
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO project VALUES(null, :1, :2, default, default)", projectRequest.Title, userId)
+	_, err = tx.Exec("INSERT INTO project VALUES(null, ?, ?, default, default)", projectRequest.Title, userId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to create project: %v", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -169,7 +169,7 @@ func (s *DbSession) GetProject(request *restful.Request, response *restful.Respo
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(?, ?))", userId, projectId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -186,7 +186,7 @@ func (s *DbSession) GetProject(request *restful.Request, response *restful.Respo
 	res := Project{}
 	res.NoteIds = make([]int, 0)
 	res.UserIds = make([]int, 0)
-	err = tx.QueryRow("SELECT id, title, owner_id, created_at, updated_at FROM project WHERE id = :1", projectId).
+	err = tx.QueryRow("SELECT id, title, owner_id, created_at, updated_at FROM project WHERE id = ?", projectId).
 		Scan(&res.Id, &res.Title, &res.OwnerId, &res.CreatedAt, &res.UpdatedAt)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for project %v: %v", projectId, err))
@@ -195,7 +195,7 @@ func (s *DbSession) GetProject(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	rows, err := tx.Query("select * from table(get_users_for_project(:1))", projectId)
+	rows, err := tx.Query("select * from table(get_users_for_project(?))", projectId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find users for project: %v.", err))
@@ -221,7 +221,7 @@ func (s *DbSession) GetProject(request *restful.Request, response *restful.Respo
 	}
 	rows.Close()
 
-	rows, err = tx.Query("select * from table(get_notes_for_project(:1))", projectId)
+	rows, err = tx.Query("select * from table(get_notes_for_project(?))", projectId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find notes for project: %v.", err))
@@ -293,7 +293,7 @@ func (s *DbSession) AddUserToProject(request *restful.Request, response *restful
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(?, ?))", userId, projectId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -307,7 +307,7 @@ func (s *DbSession) AddUserToProject(request *restful.Request, response *restful
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO project_user VALUES(:1, :2, 1)", projectRequest.NewUserId, projectId)
+	_, err = tx.Exec("INSERT INTO project_user VALUES(?, ?, 1)", projectRequest.NewUserId, projectId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to add user to project: %v", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -359,7 +359,7 @@ func (s *DbSession) DeleteProject(request *restful.Request, response *restful.Re
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(?, ?))", userId, projectId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -373,7 +373,7 @@ func (s *DbSession) DeleteProject(request *restful.Request, response *restful.Re
 		return
 	}
 
-	_, err = tx.Exec("DELETE FROM project WHERE id = :1", projectId)
+	_, err = tx.Exec("DELETE FROM project WHERE id = ?", projectId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete project %v: %v", projectId, err))
 		log.Println(errors.New(err).ErrorStack())
@@ -422,7 +422,7 @@ func (s *DbSession) GetNotesForProject(request *restful.Request, response *restf
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(:1, :2))", userId, projectId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(permission_for_project(?, ?))", userId, projectId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -438,7 +438,7 @@ func (s *DbSession) GetNotesForProject(request *restful.Request, response *restf
 
 	noteMetadata := make([]NoteMetadata, 0)
 
-	rows, err := tx.Query("SELECT id, title, owner_id, project_id FROM note WHERE id in (select * from table(get_notes_for_project(:1)))", projectId)
+	rows, err := tx.Query("SELECT id, title, owner_id, project_id FROM note WHERE id in (select * from table(get_notes_for_project(?)))", projectId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find notes for project: %v.", err))

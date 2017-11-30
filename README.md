@@ -1,6 +1,6 @@
 # ProDuctive Server
 ## Install
-install oracle OCI-8 BS, you will have to figure that one out
+access to a database on a MySql server is required
 
 get and build the program
 ```bash

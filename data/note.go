@@ -62,7 +62,7 @@ func (s *DbSession) GetNotes(request *restful.Request, response *restful.Respons
 
 	noteMetadata := make([]NoteMetadata, 0)
 
-	rows, err := tx.Query("SELECT id, title, owner_id, project_id FROM note WHERE id in (select * from table(get_notes_for_user(:1)))", userId)
+	rows, err := tx.Query("SELECT id, title, owner_id, project_id FROM note WHERE id in (select * from table(get_notes_for_user(?)))", userId)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to find notes for user: %v.", err))
@@ -128,7 +128,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(?, ?))", userId, noteId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -143,7 +143,7 @@ func (s *DbSession) GetNote(request *restful.Request, response *restful.Response
 	}
 
 	res := Note{}
-	err = tx.QueryRow("SELECT id, title, body, owner_id, project_id, created_at, updated_at FROM note WHERE id = :1", noteId).
+	err = tx.QueryRow("SELECT id, title, body, owner_id, project_id, created_at, updated_at FROM note WHERE id = ?", noteId).
 		Scan(&res.Id, &res.Title, &res.Body, &res.OwnerId, &res.ProjectId, &res.CreatedAt, &res.UpdatedAt)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to query db for note %v: %v", noteId, err))
@@ -192,7 +192,7 @@ func (s *DbSession) CreateNote(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO note VALUES(null, :1, :2, :3, :4, default, default)",
+	_, err = tx.Exec("INSERT INTO note VALUES(null, ?, ?, ?, ?, default, default)",
 		noteRequest.Title, noteRequest.Body, userId, noteRequest.ProjectId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to create user: %v", err))
@@ -245,7 +245,7 @@ func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Respo
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(?, ?))", userId, noteId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -259,7 +259,7 @@ func (s *DbSession) DeleteNote(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	_, err = tx.Exec("DELETE FROM note WHERE id = :1", noteId)
+	_, err = tx.Exec("DELETE FROM note WHERE id = ?", noteId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete note %v: %v", noteId, err))
 		log.Println(errors.New(err).ErrorStack())
@@ -315,7 +315,7 @@ func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Respo
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(?, ?))", userId, noteId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -329,7 +329,7 @@ func (s *DbSession) UpdateNote(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	_, err = tx.Exec("UPDATE note SET title = :1, body = :2, owner_id = :3, project_id = :4 WHERE id = :5", noteRequest.Title, noteRequest.Body, noteRequest.OwnerId, noteRequest.ProjectId, noteId)
+	_, err = tx.Exec("UPDATE note SET title = ?, body = ?, owner_id = ?, project_id = ? WHERE id = ?", noteRequest.Title, noteRequest.Body, noteRequest.OwnerId, noteRequest.ProjectId, noteId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to delete note: %v", err))
 		log.Println(errors.New(err).ErrorStack())
@@ -382,7 +382,7 @@ func (s *DbSession) AddUserToNote(request *restful.Request, response *restful.Re
 	}
 
 	var hasPermission int
-	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(:1, :2))", userId, noteId).Scan(&hasPermission)
+	err = tx.QueryRow("SELECT * FROM TABLE(user_has_permission_for_note(?, ?))", userId, noteId).Scan(&hasPermission)
 	if err != nil {
 		tx.Rollback()
 		response.WriteErrorString(http.StatusInternalServerError, err.Error())
@@ -396,7 +396,7 @@ func (s *DbSession) AddUserToNote(request *restful.Request, response *restful.Re
 		return
 	}
 
-	_, err = tx.Exec("INSERT INTO note_user VALUES(:1, :2, 1)", noteRequest.NewUserId, noteId)
+	_, err = tx.Exec("INSERT INTO note_user VALUES(?, ?, 1)", noteRequest.NewUserId, noteId)
 	if err != nil {
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("failed to add user to note: %v", err))
 		log.Println(errors.New(err).ErrorStack())
