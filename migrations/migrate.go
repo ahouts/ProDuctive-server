@@ -124,16 +124,11 @@ func getFilename(fullName string) string {
 
 func tableExist(tx *sql.Tx, tablename string) bool {
 	s := fmt.Sprintf("select table_name from user_tables where table_name='%v'", strings.ToUpper(tablename))
-	rows, err := tx.Query(s)
-	defer rows.Close()
+	_, err := tx.Query(s)
 	if err != nil {
-		tx.Rollback()
-		log.Fatalf("Failed to serach tables.\n%v", errors.New(err).ErrorStack())
+		return false
 	}
-	for rows.Next() {
-		return true
-	}
-	return false
+	return true
 }
 
 func insertMig(tx *sql.Tx, migName string) {

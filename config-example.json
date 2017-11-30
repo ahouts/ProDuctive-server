@@ -2,8 +2,7 @@
   "DB": {
     "Username": "productive",
     "Password": "nope",
-    "Hostname": "localhost",
-    "Port": 3306,
+    "Socket": "/run/mysqld/mysqld.sock",
     "Name": "productive"
   }
 }

@@ -21,8 +21,7 @@ import (
 type dbConfig struct {
 	Username string
 	Password string
-	Hostname string
-	Port     uint
+	Socket   string
 	Name     string
 }
 
@@ -71,7 +70,7 @@ func getCfg(cfgFile string) configuration {
 }
 
 func cfgDb(cfg configuration) *sql.DB {
-	dbConn := cfg.DB.Username + `/` + cfg.DB.Password + `@ ` + cfg.DB.Hostname + `:` + strconv.FormatInt(int64(cfg.DB.Port), 10) + "/" + cfg.DB.Name
+	dbConn := cfg.DB.Username + `:` + cfg.DB.Password + `@unix(` + cfg.DB.Socket + ")/" + cfg.DB.Name
 	db, err := sql.Open("mysql", dbConn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database...\n%v", errors.New(err).ErrorStack())
