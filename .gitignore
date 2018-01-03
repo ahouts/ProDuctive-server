@@ -25,3 +25,5 @@ config.json
 ProDuctive-server
 migrations/bin-mig.go
 build.sh
+
+vendor/
