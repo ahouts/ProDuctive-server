@@ -6,6 +6,8 @@ get and build the program
 ```bash
 go get github.com/ahouts/ProDuctive-server
 cd $GOPATH/src/github.com/ahouts/ProDuctive-server
+# golang dep, read more at [https://github.com/golang/dep]
+dep ensure
 go build .
 ```
 choose a directory to serve from
